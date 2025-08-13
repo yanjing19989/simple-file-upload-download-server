@@ -18,7 +18,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f2f2f2; }
         .container { background: #fff; padding: 20px; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         h1 { text-align: center; margin-bottom: 20px; font-size: 1.5rem;}
-        input[type=file] { width: 100%; margin-bottom: 15px; }
+        input[type=file] { width: 100%; margin-bottom: 15px; font-size: 1rem;}
         button { padding: 10px; margin: 5px 0; width: 100%; font-size: 1rem; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
         .btn-upload { background: #007bff; } .btn-upload:hover { background: #0056b3; }
         .btn-download { background: #28a745; } .btn-download:hover { background: #218838; }
@@ -26,7 +26,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
         .file-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
         .file-list li { display: flex; align-items: center; margin-bottom: 5px; }
         .file-checkbox { margin-right: 8px; }
-        @media (max-width: 480px) { .container { padding: 10px; } button { font-size: 0.9rem; } }
+        @media (max-width: 480px) { .container { padding: 10px; } button { font-size: 1rem; } }
     </style>
 </head>
 <body>
@@ -42,6 +42,13 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     <button class="btn-refresh" onclick="refreshList()">刷新列表</button>
 </div>
 <script>
+// 格式化字节为可读单位
+function formatSize(bytes) {
+    const units = ['B','KB','MB','GB','TB'];
+    let i = 0;
+    while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
+    return bytes.toFixed(2) + ' ' + units[i];
+}
 function upload() {
     const files = document.getElementById('fileInput').files;
     if (!files.length) { alert('请选择文件'); return; }
@@ -69,7 +76,17 @@ function refreshList() {
         const ul = document.getElementById('fileList'); ul.innerHTML = '';
         data.files.forEach(function(f) {
             const li = document.createElement('li');
-            li.innerHTML = '<input type="checkbox" class="file-checkbox" value="' + f + '"><label>' + f + '</label>';
+            // 文件名称与大小
+            li.innerHTML = '<input type="checkbox" class="file-checkbox" value="' + f.name + '">' +
+                           '<label style="flex:1;cursor:pointer;">' + f.name + '</label>' +
+                           '<span style="margin-left:16px;">' + formatSize(f.size) + '</span>';
+            // 点击行触发复选框
+            li.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'INPUT') {
+                    const cb = this.querySelector('input');
+                    cb.checked = !cb.checked;
+                }
+            });
             ul.appendChild(li);
         });
     });
@@ -101,12 +118,17 @@ window.onload = refreshList;
             else:
                 self.send_error(404, '文件未找到')
         elif self.path == '/list':
-            files = [f for f in os.listdir('.') if os.path.isfile(f)]
+            # 返回文件名和文件大小
+            file_infos = []
+            for f in os.listdir('.'):
+                if os.path.isfile(f):
+                    size = os.path.getsize(f)
+                    file_infos.append({'name': f, 'size': size})
             import json
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.end_headers()
-            self.wfile.write(json.dumps({'files': files}).encode('utf-8'))
+            self.wfile.write(json.dumps({'files': file_infos}).encode('utf-8'))
         else:
             self.send_error(404)
 
