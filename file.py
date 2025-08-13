@@ -2,8 +2,18 @@ import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import cgi
 import argparse
+import random
+# 加密模式开关与一次性密钥
+ENCRYPTED = False
+SECRET_KEY = ''
 
 class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
+    def _check_key(self):
+        if not ENCRYPTED:
+            return True
+        key = self.headers.get('X-Secret-Key')
+        return key == SECRET_KEY
+
     def do_GET(self):
         if self.path == '/':
             self.send_response(200)
@@ -96,10 +106,13 @@ function upload() {
         }
     };
     xhr.onload = function() { if (xhr.status === 200) { alert('上传成功'); refreshList(); } else { alert('上传失败: ' + xhr.status); } };
+    xhr.setRequestHeader('X-Secret-Key', prompt('请输入密钥：'));
     xhr.send(form);
 }
 function refreshList() {
-    fetch('/list').then(response => response.json()).then(data => {
+    fetch('/list', { headers: { 'X-Secret-Key': prompt('请输入密钥：') } })
+    .then(response => response.json())
+    .then(data => {
         const ul = document.getElementById('fileList'); ul.innerHTML = '';
         data.files.forEach(function(f) {
             const li = document.createElement('li');
@@ -145,6 +158,9 @@ window.onload = refreshList;
 </html>"""
             self.wfile.write(html.encode('utf-8'))
         elif self.path.startswith('/download'):
+            if not self._check_key():
+                self.send_error(401, '未授权，密钥错误')
+                return
             import urllib.parse
             query = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(query)
@@ -159,6 +175,9 @@ window.onload = refreshList;
             else:
                 self.send_error(404, '文件未找到')
         elif self.path == '/list':
+            if not self._check_key():
+                self.send_error(401, '未授权，密钥错误')
+                return
             # 返回文件名和文件大小
             file_infos = []
             for f in os.listdir('.'):
@@ -175,6 +194,9 @@ window.onload = refreshList;
 
     def do_POST(self):
         if self.path == '/upload':
+            if not self._check_key():
+                self.send_error(401, '未授权，密钥错误')
+                return
             ctype, pdict = cgi.parse_header(self.headers.get('Content-Type'))
             if ctype == 'multipart/form-data':
                 pdict['boundary'] = pdict['boundary'].encode('utf-8')
@@ -203,6 +225,11 @@ def run(server_class=HTTPServer, handler_class=UploadHTTPRequestHandler, port=80
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='File upload and download server.')
-    parser.add_argument('--port', type=int, default=80, help='Port to run the server on (default: 80)')
+    parser.add_argument('-p', '--port', type=int, default=80, help='Port to run the server on (default: 80)')
+    parser.add_argument('-e', '--encrypted', action='store_true', help='Enable encryption mode and enter a one-time key to access')
     args = parser.parse_args()
+    if args.encrypted:
+        ENCRYPTED = True
+        SECRET_KEY = f"{random.randint(1000, 9999):04d}"
+        print(f"一次性密钥: {SECRET_KEY}")
     run(port=args.port)
