@@ -15,14 +15,40 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>文件上传与下载</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f2f2f2; }
-        .container { background: #fff; padding: 20px; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        /* 主题色变量 */
+        :root {
+            --bg-color: #f2f2f2;
+            --container-bg: #fff;
+            --text-color: #000;
+            --btn-upload-bg: #007bff;
+            --btn-upload-hover: #0056b3;
+            --btn-download-bg: #28a745;
+            --btn-download-hover: #218838;
+            --btn-refresh-bg: #17a2b8;
+            --btn-refresh-hover: #117a8b;
+        }
+        .dark-mode {
+            --bg-color: #1e1e1e;
+            --container-bg: #2e2e2e;
+            --text-color: #ddd;
+            --btn-upload-bg: #007bff;
+            --btn-upload-hover: #0056b3;
+            --btn-download-bg: #28a745;
+            --btn-download-hover: #218838;
+            --btn-refresh-bg: #17a2b8;
+            --btn-refresh-hover: #117a8b;
+        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: var(--bg-color); color: var(--text-color);}
+        .container {  background: var(--container-bg); color: var(--text-color); padding: 20px; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        button.btn-upload { background: var(--btn-upload-bg); }
+        button.btn-upload:hover { background: var(--btn-upload-hover); }
+        button.btn-download { background: var(--btn-download-bg); }
+        button.btn-download:hover { background: var(--btn-download-hover); }
+        button.btn-refresh { background: var(--btn-refresh-bg); }
+        button.btn-refresh:hover { background: var(--btn-refresh-hover); }
         h1 { text-align: center; margin-bottom: 20px; font-size: 1.5rem;}
         input[type=file] { width: 100%; margin-bottom: 15px; font-size: 1rem;}
         button { padding: 10px; margin: 5px 0; width: 100%; font-size: 1rem; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-        .btn-upload { background: #007bff; } .btn-upload:hover { background: #0056b3; }
-        .btn-download { background: #28a745; } .btn-download:hover { background: #218838; }
-        .btn-refresh { background: #17a2b8; } .btn-refresh:hover { background: #117a8b; }
         .file-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
         .file-list li { display: flex; align-items: center; margin-bottom: 5px; }
         .file-checkbox { margin-right: 8px; }
@@ -98,6 +124,20 @@ function downloadSelected() {
         window.open('/download?file=' + encodeURIComponent(cb.value), '_blank');
     });
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    function handleThemeChange(e) {
+        if (e.matches) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    }
+    handleThemeChange(mediaQuery);
+    mediaQuery.addEventListener('change', handleThemeChange);
+});
+
 window.onload = refreshList;
 </script>
 </body>
