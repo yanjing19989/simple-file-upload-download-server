@@ -65,35 +65,14 @@
 ### 加密模式说明
 - 启用 `-e` 后，所有接口校验 `X-Secret-Key`。
 - 前端上传/刷新会弹窗输入密钥。
-- ⚠️ 浏览器下载无法自定义 header，启用加密模式时“下载所选”会失败。
-
-**解决方案：**
-- 不启用加密模式下载；或
-- 用命令行工具下载：
-  
-  ```powershell
-  $headers = @{ 'X-Secret-Key' = '1234' }
-  Invoke-WebRequest "http://localhost:8000/download?file=test.txt" -Headers $headers -OutFile "test.txt"
-  ```
-
-- 进阶：将密钥改为查询参数/Cookie，或用 fetch+blob 下载。
 
 ### 安全与注意事项
-- 仅用于局域网/临时传输，无权限隔离。
+- 仅用于局域网/临时传输，无权限隔离和传输加密
 - Python `cgi` 模块已废弃，未来可能移除。
 
 ### 故障排查
 - 权限/端口占用：用 `-p 8000` 或管理员权限。
-- 下载失败（加密模式）：见上文“加密模式说明”。
 - 上传 400：确认 Content-Type 和字段名。
-
-### 开发建议
-- 下载路径白名单/基目录限制。
-- 移除 `cgi` 依赖，可用 `email.parser` 或三方库。
-- 密钥可用 Cookie/查询参数（建议 HTTPS）。
-
-### 许可
-未声明，可按需要添加（如 MIT）。
 
 ---
 
@@ -158,17 +137,10 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 ### Encrypted Mode Notes
 - With `-e`, the server validates `X-Secret-Key` for all endpoints.
 - The frontend prompts for the key for Upload and List.
-- ⚠️ Browsers cannot add custom headers to `window.open`, so Download Selected usually fails when encryption is enabled.
 
 **Workarounds:**
 - Temporarily avoid encrypted mode for downloads; or
 - Use a CLI tool that can add headers, e.g.:
-
-  ```powershell
-  $headers = @{ 'X-Secret-Key' = '1234' }
-  Invoke-WebRequest "http://localhost:8000/download?file=test.txt" -Headers $headers -OutFile "test.txt"
-  ```
-- Advanced: Move the key to a query param or cookie, or use fetch+blob for download.
 
 ### Security Notes
 - Intended for LAN/temporary use; no auth roles or auditing.
@@ -176,13 +148,6 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 
 ### Troubleshooting
 - Permission/port issues: use `-p 8000` or run as admin.
-- Download fails with encryption: see Encrypted Mode Notes above.
 - Upload 400: ensure `multipart/form-data` with field name `file`.
 
-### Development Notes
-- Safer download: restrict to a base dir and validate `file`.
-- Remove `cgi` dependency: use `email.parser` or a framework (`Werkzeug`/`aiohttp`).
-- Better key transport: use cookies or query params (deploy behind HTTPS).
 
-### License
-No license declared. Add one as needed (e.g., MIT).
