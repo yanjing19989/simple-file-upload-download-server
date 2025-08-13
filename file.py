@@ -12,6 +12,11 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
         if not ENCRYPTED:
             return True
         key = self.headers.get('X-Secret-Key')
+        if not key:
+            import urllib.parse
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            key = params.get('key', [''])[0]
         return key == SECRET_KEY
 
     def do_GET(self):
@@ -79,12 +84,29 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     <button class="btn-refresh" onclick="refreshList()">刷新列表</button>
 </div>
 <script>
-// 格式化字节为可读单位
+
 function formatSize(bytes) {
     const units = ['B','KB','MB','GB','TB'];
     let i = 0;
     while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
     return bytes.toFixed(2) + ' ' + units[i];
+}
+
+window.ENCRYPTED = {encrypted_status};
+let globalKey = '';
+
+function getKey() {
+    if (!window.ENCRYPTED) {
+        return '0';
+    }
+    if (!globalKey) {
+        globalKey = prompt('请输入密钥：');
+    }
+    return globalKey;
+}
+
+function resetKey() {
+    globalKey = '';
 }
 function upload() {
     const files = document.getElementById('fileInput').files;
@@ -104,14 +126,34 @@ function upload() {
             document.getElementById('status').textContent = (deltaBytes / deltaTime / 1024).toFixed(2) + ' KB/s';
             lastLoaded = event.loaded; lastTime = now;
         }
+    };    xhr.onload = function() { 
+        if (xhr.status === 200) { 
+            alert('上传成功'); 
+            refreshList(); 
+        } else if (xhr.status === 401) {
+            alert('密钥错误，请重新输入');
+            resetKey();
+        } else { 
+            alert('上传失败: ' + xhr.status); 
+        } 
     };
-    xhr.onload = function() { if (xhr.status === 200) { alert('上传成功'); refreshList(); } else { alert('上传失败: ' + xhr.status); } };
-    xhr.setRequestHeader('X-Secret-Key', prompt('请输入密钥：'));
+    const key = getKey();
+    if (!key) return;
+    xhr.setRequestHeader('X-Secret-Key', key);
     xhr.send(form);
 }
 function refreshList() {
-    fetch('/list', { headers: { 'X-Secret-Key': prompt('请输入密钥：') } })
-    .then(response => response.json())
+    const key = getKey();
+    if (!key) return;
+    fetch('/list', { headers: { 'X-Secret-Key': key } })
+    .then(response => {
+        if (response.status === 401) {
+            alert('密钥错误，请重新输入');
+            resetKey();
+            return refreshList();
+        }
+        return response.json();
+    })
     .then(data => {
         const ul = document.getElementById('fileList'); ul.innerHTML = '';
         data.files.forEach(function(f) {
@@ -134,8 +176,10 @@ function refreshList() {
 function downloadSelected() {
     const checks = document.querySelectorAll('.file-checkbox:checked');
     if (!checks.length) { alert('请选择要下载的文件'); return; }
+    const key = getKey();
+    if (!key) return;
     checks.forEach(function(cb) {
-        window.open('/download?file=' + encodeURIComponent(cb.value), '_blank');
+        window.open('/download?file=' + encodeURIComponent(cb.value) + '&key=' + encodeURIComponent(key), '_blank');
     });
 }
 
@@ -156,6 +200,8 @@ window.onload = refreshList;
 </script>
 </body>
 </html>"""
+            # 替换加密状态
+            html = html.replace('{encrypted_status}', 'true' if ENCRYPTED else 'false')
             self.wfile.write(html.encode('utf-8'))
         elif self.path.startswith('/download'):
             if not self._check_key():
