@@ -1,6 +1,7 @@
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import cgi
+import argparse
 
 class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -194,11 +195,14 @@ window.onload = refreshList;
         else:
             self.send_error(404)
 
-def run(server_class=HTTPServer, handler_class=UploadHTTPRequestHandler, port=8000):
+def run(server_class=HTTPServer, handler_class=UploadHTTPRequestHandler, port=80):
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
     print(f"Serving on port {port}")
     httpd.serve_forever()
 
 if __name__ == '__main__':
-    run()
+    parser = argparse.ArgumentParser(description='File upload and download server.')
+    parser.add_argument('--port', type=int, default=80, help='Port to run the server on (default: 80)')
+    args = parser.parse_args()
+    run(port=args.port)
