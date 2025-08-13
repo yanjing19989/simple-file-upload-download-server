@@ -32,7 +32,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
 <div class=\"container py-5\">
     <h1 class=\"text-center mb-4\">上传文件</h1>
     <div class=\"mb-3\">
-        <input type=\"file\" class=\"form-control form-control-lg\" id=\"fileInput\">
+        <input type=\"file\" class=\"form-control form-control-lg\" id=\"fileInput\" multiple>
     </div>
     <div class=\"d-grid mb-3\">
         <button class=\"btn btn-primary btn-lg\" onclick=\"upload()\">上传</button>
@@ -46,8 +46,12 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
 </div>
 <script>
         function upload() {
-            const file = document.getElementById('fileInput').files[0];
-            if (!file) return alert('请选择文件');
+            const files = document.getElementById('fileInput').files;
+            if (!files.length) return alert('请选择文件');
+            const form = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                form.append('file', files[i]);
+            }
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/upload');
             let lastLoaded = 0;
@@ -72,8 +76,6 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                     alert('上传失败: ' + xhr.status);
                 }
             };
-            const form = new FormData();
-            form.append('file', file);
             xhr.send(form);
         }
 </script>
@@ -89,10 +91,14 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
             if ctype == 'multipart/form-data':
                 pdict['boundary'] = pdict['boundary'].encode('utf-8')
                 form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ={'REQUEST_METHOD':'POST'}, keep_blank_values=True)
-                field_item = form['file']
-                filename = os.path.basename(field_item.filename)
-                with open(filename, 'wb') as f:
-                    f.write(field_item.file.read())
+                # 支持多个文件上传
+                files = form['file']
+                if not isinstance(files, list):
+                    files = [files]
+                for field_item in files:
+                    filename = os.path.basename(field_item.filename)
+                    with open(filename, 'wb') as f:
+                        f.write(field_item.file.read())
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'OK')
