@@ -159,13 +159,18 @@ window.onload = refreshList;
             self.wfile.write(html.encode('utf-8'))
         elif self.path.startswith('/download'):
             if not self._check_key():
-                self.send_error(401, '未授权，密钥错误')
+                self.send_error(401, 'Unauthorized, invalid key')
                 return
             import urllib.parse
             query = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(query)
             filename = params.get('file', [''])[0]
             if filename and os.path.isfile(filename):
+                safe_path = os.path.abspath(filename)
+                base_dir = os.path.abspath('.')
+                if not safe_path.startswith(base_dir + os.sep) or not os.path.isfile(safe_path):
+                    self.send_error(403, 'Access to the file is prohibited')
+                    return
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/octet-stream')
                 self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
@@ -173,10 +178,10 @@ window.onload = refreshList;
                 with open(filename, 'rb') as fp:
                     self.wfile.write(fp.read())
             else:
-                self.send_error(404, '文件未找到')
+                self.send_error(404, 'File not found')
         elif self.path == '/list':
             if not self._check_key():
-                self.send_error(401, '未授权，密钥错误')
+                self.send_error(401, 'Unauthorized, invalid key')
                 return
             # 返回文件名和文件大小
             file_infos = []
@@ -195,7 +200,7 @@ window.onload = refreshList;
     def do_POST(self):
         if self.path == '/upload':
             if not self._check_key():
-                self.send_error(401, '未授权，密钥错误')
+                self.send_error(401, 'Unauthorized, invalid key')
                 return
             ctype, pdict = cgi.parse_header(self.headers.get('Content-Type'))
             if ctype == 'multipart/form-data':
@@ -213,7 +218,7 @@ window.onload = refreshList;
                 self.end_headers()
                 self.wfile.write(b'OK')
             else:
-                self.send_error(400, "错误的Content-Type")
+                self.send_error(400, "Wrong Content-Type")
         else:
             self.send_error(404)
 
