@@ -186,4 +186,43 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 - Permission/port issues: use `-p 8000` or run as admin.
 - Upload 400: ensure `multipart/form-data` with field name `file`.
 
+### Pre-built Binaries
+
+Pre-built executables are available for Windows and Linux from the [releases page](https://github.com/yanjing19989/simple-file-upload-download-server/releases). Two build types are provided:
+
+**Directory builds** (recommended for development):
+- Linux: `simple-file-server-linux-directory.tar.gz`
+- Windows: `simple-file-server-windows-directory.zip`
+
+Extract and run the executable from the folder. Static files are included in the `_internal` directory.
+
+**Standalone builds** (single executable):
+- Linux: `simple-file-server-linux-standalone.tar.gz`  
+- Windows: `simple-file-server-windows-standalone.zip`
+
+Single executable file with embedded assets. May take longer to start but easier to distribute.
+
+Usage after extraction:
+```bash
+# Linux
+./simple-file-server -p 8000
+
+# Windows  
+simple-file-server.exe -p 8000
+```
+
+### Building from Source
+
+The project includes GitHub Actions CI/CD that builds binaries using PyInstaller:
+
+1. **Automatic builds**: Triggered on push to `main` branch and pull requests
+2. **Release builds**: Create a git tag (e.g., `v1.0.0`) to trigger a release with downloadable assets
+3. **Local builds**: Install PyInstaller and run:
+   ```bash
+   pip install pyinstaller
+   pyinstaller file.py --add-data "static:static" --add-data "classic.html:." --name simple-file-server
+   ```
+
+The CI/CD pipeline creates both `--onefile` (standalone) and `--onedir` (directory) builds for Windows and Linux platforms.
+
 

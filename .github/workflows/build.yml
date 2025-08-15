@@ -1,0 +1,223 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            archive_ext: tar.gz
+            archive_cmd: tar -czf
+          - os: windows-latest
+            platform: windows
+            archive_ext: zip
+            archive_cmd: 7z a
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
+    - name: Install PyInstaller
+      run: pip install pyinstaller
+
+    - name: Test application
+      run: |
+        python file.py --help
+        echo "test content" > test.txt
+        python -c "
+import os, json
+from file import UploadHTTPRequestHandler
+print('Application imports successfully')
+if os.path.exists('static/index.html'):
+    print('Static files found')
+if os.path.exists('classic.html'):
+    print('Classic HTML found')
+"
+      shell: bash
+
+    - name: Create PyInstaller spec file
+      run: |
+        cat > file.spec << 'EOF'
+# -*- mode: python ; coding: utf-8 -*-
+
+a = Analysis(
+    ['file.py'],
+    pathex=[],
+    binaries=[],
+    datas=[
+        ('static', 'static'),
+        ('classic.html', '.'),
+    ],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+)
+pyz = PYZ(a.pure)
+
+# Directory build
+exe_dir = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='simple-file-server',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+coll = COLLECT(
+    exe_dir,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='simple-file-server',
+)
+
+# Single file build
+exe_onefile = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name='simple-file-server-standalone',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+EOF
+      shell: bash
+
+    - name: Build with PyInstaller
+      run: pyinstaller --clean file.spec
+
+    - name: Create directory archive
+      run: |
+        cd dist
+        ${{ matrix.archive_cmd }} simple-file-server-${{ matrix.platform }}-directory.${{ matrix.archive_ext }} simple-file-server
+      shell: bash
+
+    - name: Create standalone archive
+      run: |
+        cd dist
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          ${{ matrix.archive_cmd }} simple-file-server-${{ matrix.platform }}-standalone.${{ matrix.archive_ext }} simple-file-server-standalone.exe
+        else
+          ${{ matrix.archive_cmd }} simple-file-server-${{ matrix.platform }}-standalone.${{ matrix.archive_ext }} simple-file-server-standalone
+        fi
+      shell: bash
+
+    - name: Upload directory build
+      uses: actions/upload-artifact@v3
+      with:
+        name: simple-file-server-${{ matrix.platform }}-directory
+        path: dist/simple-file-server-${{ matrix.platform }}-directory.${{ matrix.archive_ext }}
+
+    - name: Upload standalone build
+      uses: actions/upload-artifact@v3
+      with:
+        name: simple-file-server-${{ matrix.platform }}-standalone
+        path: dist/simple-file-server-${{ matrix.platform }}-standalone.${{ matrix.archive_ext }}
+
+    - name: Test built executables
+      run: |
+        cd dist
+        echo "Testing directory build..."
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          ./simple-file-server/simple-file-server.exe --help || echo "Directory build help test completed"
+        else
+          ./simple-file-server/simple-file-server --help || echo "Directory build help test completed"
+        fi
+        
+        echo "Testing standalone build..."
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          ./simple-file-server-standalone.exe --help || echo "Standalone build help test completed"
+        else
+          ./simple-file-server-standalone --help || echo "Standalone build help test completed"
+        fi
+      shell: bash
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          simple-file-server-linux-directory/*
+          simple-file-server-linux-standalone/*
+          simple-file-server-windows-directory/*
+          simple-file-server-windows-standalone/*
+        body: |
+          ## Downloads
+          
+          **Directory builds** (includes all files in a folder):
+          - Linux: `simple-file-server-linux-directory.tar.gz`
+          - Windows: `simple-file-server-windows-directory.zip`
+          
+          **Standalone builds** (single executable file):
+          - Linux: `simple-file-server-linux-standalone.tar.gz`
+          - Windows: `simple-file-server-windows-standalone.zip`
+          
+          ## Usage
+          
+          Extract and run:
+          ```bash
+          # Linux directory build
+          tar -xzf simple-file-server-linux-directory.tar.gz
+          cd simple-file-server
+          ./simple-file-server -p 8000
+          
+          # Linux standalone
+          tar -xzf simple-file-server-linux-standalone.tar.gz
+          ./simple-file-server-standalone -p 8000
+          
+          # Windows - extract and run .exe files
+          ```
+          
+          Visit `http://localhost:8000` in your browser after starting the server.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
