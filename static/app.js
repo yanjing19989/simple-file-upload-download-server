@@ -5,9 +5,38 @@ function resetKey() { globalKey = ''; showToast('密钥已重置', 'warn'); }
 function showToast(msg, type = 'ok', timeout = 3200) { const el = document.createElement('div'); el.className = 'toast ' + type; el.textContent = msg; document.getElementById('toastStack').appendChild(el); setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(-6px)'; setTimeout(() => el.remove(), 420); }, timeout); }
 // Theme
 const userPrefKey = 'fs_theme_pref';
-function applyTheme(mode) { if (mode === 'dark') { document.documentElement.classList.add('dark-mode'); } else { document.documentElement.classList.remove('dark-mode'); } }
-(function () { const saved = localStorage.getItem(userPrefKey); if (saved) { applyTheme(saved); } else { const mq = matchMedia('(prefers-color-scheme: dark)'); applyTheme(mq.matches ? 'dark' : 'light'); } })();
-const themeBtn = document.getElementById('themeBtn'); themeBtn.addEventListener('click', () => { const dark = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem(userPrefKey, dark ? 'dark' : 'light'); });
+let colorSchemeMQ = matchMedia('(prefers-color-scheme: dark)');
+let mqListener = null;
+
+function applyTheme(mode) {
+    localStorage.setItem(userPrefKey, mode);
+    if (mqListener && mode !== 'auto') {try { colorSchemeMQ.removeEventListener('change', mqListener); } catch (e) { try { colorSchemeMQ.removeListener(mqListener); } catch (e) { } }mqListener = null;}
+    if (mode === 'dark') {
+        document.documentElement.classList.add('dark-mode');
+    } else if (mode === 'light') {
+        document.documentElement.classList.remove('dark-mode');
+    } else if (mode === 'auto') {
+        if (colorSchemeMQ.matches) {document.documentElement.classList.add('dark-mode');} else {document.documentElement.classList.remove('dark-mode');}
+        if (!mqListener) {
+            mqListener = (e) => {if (e.matches) document.documentElement.classList.add('dark-mode'); else document.documentElement.classList.remove('dark-mode');};
+            try { colorSchemeMQ.addEventListener('change', mqListener); } catch (e) { try { colorSchemeMQ.addListener(mqListener); } catch (e) { } }
+        }
+    }
+}
+(function () {
+    const saved = localStorage.getItem(userPrefKey);
+    if (saved) {applyTheme(saved);} else {applyTheme('auto');}
+})();
+
+const themeBtn = document.getElementById('themeBtn');
+themeBtn.addEventListener('click', () => {
+    const current = localStorage.getItem(userPrefKey) || 'auto';
+    const order = ['light', 'dark', 'auto'];
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    applyTheme(next);
+    showToast('主题：' + next, 'ok');
+});
+
 // Elements
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
