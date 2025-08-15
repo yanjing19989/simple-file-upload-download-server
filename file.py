@@ -6,6 +6,7 @@ import random
 # 加密模式开关与一次性密钥
 ENCRYPTED = False
 SECRET_KEY = ''
+CLASSIC_MODE = False
 
 class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     def _check_key(self):
@@ -23,7 +24,12 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
         if self.path == '/':
             # 返回静态 index.html
             try:
-                with open(os.path.join('static','index.html'),'rb') as fh:
+                if CLASSIC_MODE:
+                    # 如果是经典模式，返回 classic.html
+                    index_file = 'classic.html'
+                else:
+                    index_file = os.path.join('static', 'index.html')
+                with open(index_file, 'rb') as fh:
                     data = fh.read()
                 # 替换一次性密钥
                 data = data.decode('utf-8').replace('{encrypted_status}', 'true' if ENCRYPTED else 'false')
@@ -139,9 +145,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='File upload and download server.')
     parser.add_argument('-p', '--port', type=int, default=80, help='Port to run the server on (default: 80)')
     parser.add_argument('-e', '--encrypted', action='store_true', help='Enable encryption mode and enter a one-time key to access')
+    parser.add_argument('-c', '--classic', action='store_true', help='Enable classic mode and use classic.html as the homepage')
     args = parser.parse_args()
     if args.encrypted:
         ENCRYPTED = True
         SECRET_KEY = f"{random.randint(1000, 9999):04d}"
         print(f"一次性密钥: {SECRET_KEY}")
+    if args.classic:
+        CLASSIC_MODE = True
+        print("Classic mode enabled: serving classic.html as homepage")
     run(port=args.port)
