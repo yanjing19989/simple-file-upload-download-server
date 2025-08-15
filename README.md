@@ -18,8 +18,14 @@
 - 下载文件（浏览器或命令行）
 - 文件列表（名称 + 大小）
 - 进度条与上传速度显示
-- 自动适配深色模式
+- 增强型现代界面（卡片式布局、毛玻璃效果）
+- 拖拽上传支持
+- 手动主题切换（浅色/深色/自动）
+- 文件搜索与批量操作
+- 实时速度与预计完成时间显示
+- 响应式设计，支持移动设备
 - 可选加密模式：一次性 4 位密钥（请求头 `X-Secret-Key`）
+- 经典界面模式（通过 `-c` 参数启用）
 
 ### 快速开始
 1. 安装 Python 3.8+ 并确保命令行可用 `python`。
@@ -36,6 +42,10 @@
      ```powershell
      python file.py -p 8000 -e
      ```
+   - 启用经典界面模式：
+     ```powershell
+     python file.py -p 8000 -c
+     ```
 3. 浏览器访问：
    ```
    http://localhost:PORT/
@@ -45,13 +55,21 @@
 ### 命令行参数
 - `-p, --port` 指定服务端口（默认 80）
 - `-e, --encrypted` 启用一次性密钥模式
+- `-c, --classic` 启用经典模式，使用传统界面
 
 加密模式下，控制台会显示 4 位密钥，客户端需在请求头携带 `X-Secret-Key`。
 
 ### 前端使用
-- 上传：选择文件后点击“上传”，如启用加密模式会弹窗输入密钥。
-- 列表：点击“刷新列表”获取服务器当前目录文件。
-- 下载：选中文件后点击“下载所选”。
+**新界面（默认）：**
+- 上传：拖拽文件到上传区域或点击"浏览选择"，支持多文件上传，实时显示上传进度、速度和预计完成时间
+- 列表：自动加载文件列表，支持搜索过滤、全选/反选、批量下载
+- 主题：点击右上角主题按钮切换浅色/深色/自动模式
+- 下载：选中文件后点击"下载所选"，支持批量下载
+
+**经典界面（`-c` 启用）：**
+- 上传：选择文件后点击"上传"，如启用加密模式会弹窗输入密钥
+- 列表：点击"刷新列表"获取服务器当前目录文件
+- 下载：选中文件后点击"下载所选"
 
 > 端口 80 通常需管理员权限，推荐 `-p 8000`。
 > 当前目录所有普通文件都会出现在列表中。
@@ -90,8 +108,14 @@ A tiny file upload/download server built on Python's built-in `http.server`. Sin
 - File download (browser or CLI)
 - File listing (name + size)
 - Upload progress and speed display
-- Auto dark-mode support
+- Enhanced modern interface (card layout with glassmorphism effects)
+- Drag and drop file upload support
+- Manual theme switching (light/dark/auto)
+- File search and bulk operations
+- Real-time speed and ETA display
+- Responsive design for mobile devices
 - Optional encrypted mode: one-time 4-digit key (via `X-Secret-Key` header)
+- Classic interface mode (enabled via `-c` flag)
 
 ### Quick Start
 1. Install Python 3.8+ and ensure `python` is available in your shell.
@@ -108,6 +132,10 @@ A tiny file upload/download server built on Python's built-in `http.server`. Sin
      ```powershell
      python file.py -p 8000 -e
      ```
+   - Enable classic interface mode:
+     ```powershell
+     python file.py -p 8000 -c
+     ```
 3. Visit in browser:
    ```
    http://localhost:PORT/
@@ -117,13 +145,21 @@ A tiny file upload/download server built on Python's built-in `http.server`. Sin
 ### CLI Options
 - `-p, --port` Specify the server port (default 80)
 - `-e, --encrypted` Enable one-time key mode
+- `-c, --classic` Enable classic mode with traditional interface
 
 When encrypted mode is enabled, the program prints a one-time 4-digit key and requires clients to include it in the `X-Secret-Key` request header.
 
 ### Frontend Usage
-- Upload: Select files, click Upload. If encrypted mode is on, the page prompts for the key.
-- List: Click Refresh to fetch all files in the server's current directory.
-- Download: Select files and click Download Selected to open downloads in new windows.
+**Enhanced Interface (Default):**
+- Upload: Drag files to upload area or click "Browse" button. Supports multi-file upload with real-time progress, speed, and ETA display
+- List: Auto-loads file list with search filtering, select all/invert selection, and bulk download support
+- Theme: Click theme button in top-right corner to switch between light/dark/auto modes
+- Download: Select files and click "Download Selected" for bulk downloads
+
+**Classic Interface (`-c` enabled):**
+- Upload: Select files, click Upload. If encrypted mode is on, the page prompts for the key
+- List: Click Refresh to fetch all files in the server's current directory
+- Download: Select files and click Download Selected to open downloads in new windows
 
 > Port 80 often requires admin privileges on Windows; prefer `-p 8000`.
 > All regular files in the current working directory appear in the list.
