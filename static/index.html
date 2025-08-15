@@ -22,8 +22,8 @@
         <div class="card">
             <h2>上传文件</h2>
             <div class="drop-zone" id="dropZone">
-                <p style="font-size:.8rem;margin-bottom:12px;"><strong>拖拽文件</strong> 或 <label for="fileInput" id="selectLabel" class="btn btn-primary">浏览选择</label></p>
-                <p style="font-size:.65rem; letter-spacing:.5px;">支持多文件，大小显示与进度跟踪</p>
+                <p style="font-size:1rem;margin-bottom:12px;"><strong>拖拽文件</strong> 或 <label for="fileInput" id="selectLabel" class="btn btn-primary">浏览选择</label></p>
+                <p style="font-size:.8rem; letter-spacing:.5px;">支持多文件，大小显示与进度跟踪</p>
                 <input type="file" id="fileInput" multiple>
                 <!-- 已选择文件信息 -->
                 <div id="selectedList" style="margin-top:12px;font-size:.85rem;color:var(--muted);">未选择文件</div>
@@ -44,8 +44,8 @@
                 <input id="search" placeholder="搜索文件..." autocomplete="off">
                 <button class="btn-outline" id="selectAllBtn">全选</button>
                 <button class="btn-outline" id="invertBtn">反选</button>
-                <button class="btn-accent" id="downloadSelBtn">下载所选</button>
                 <button class="btn-outline" id="refreshBtn">刷新</button>
+                <button class="btn-accent" id="downloadSelBtn">下载所选</button>
             </div>
             <div class="table-container">
                 <table class="files-table" id="filesTable">
@@ -56,7 +56,7 @@
             <div class="meta-line" style="margin-top:14px;"><span id="selectedCount">0 已选</span><span id="lastRefresh">--</span></div>
         </div>
     </section>
-    <footer>界面增强版 · 保留原有上传/下载接口 · <span id="encState"></span></footer>
+    <footer>界面增强版 · <span id="encState"></span></footer>
 </main>
 <div class="toast-stack" id="toastStack"></div>
 <script src="/static/app.js"></script>
