@@ -48,7 +48,11 @@ if os.path.exists('static/index.html'):
     print('Static files found')
 if os.path.exists('classic.html'):
     print('Classic HTML found')
+# Test that we can create the server class
+handler = UploadHTTPRequestHandler
+print('Server handler class created successfully')
 "
+        rm test.txt
       shell: bash
 
     - name: Create PyInstaller spec file
@@ -126,7 +130,18 @@ EOF
       shell: bash
 
     - name: Build with PyInstaller
-      run: pyinstaller --clean file.spec
+      run: |
+        pyinstaller --clean file.spec
+        echo "Verifying build outputs..."
+        ls -la dist/
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          test -f "dist/simple-file-server/simple-file-server.exe" || exit 1
+          test -f "dist/simple-file-server-standalone.exe" || exit 1
+        else
+          test -f "dist/simple-file-server/simple-file-server" || exit 1
+          test -f "dist/simple-file-server-standalone" || exit 1
+        fi
+        echo "Build verification completed successfully"
 
     - name: Create directory archive
       run: |
