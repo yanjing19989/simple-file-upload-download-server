@@ -92,6 +92,45 @@
 - 权限/端口占用：用 `-p 8000` 或管理员权限。
 - 上传 400：确认 Content-Type 和字段名。
 
+### 预编译可执行文件
+
+Windows 和 Linux 平台的预编译可执行文件可从 [发布页面](https://github.com/yanjing19989/simple-file-upload-download-server/releases) 下载。提供两种构建类型：
+
+**目录构建**（推荐开发使用）：
+- Linux：`simple-file-server-linux-directory.tar.gz`
+- Windows：`simple-file-server-windows-directory.zip`
+
+解压后从文件夹中运行可执行文件。静态文件包含在 `_internal` 目录中。
+
+**独立构建**（单个可执行文件）：
+- Linux：`simple-file-server-linux-standalone.tar.gz`  
+- Windows：`simple-file-server-windows-standalone.zip`
+
+单个可执行文件，内嵌所有资源。启动可能稍慢但更易分发。
+
+解压后使用：
+```bash
+# Linux
+./simple-file-server -p 8000
+
+# Windows  
+simple-file-server.exe -p 8000
+```
+
+### 从源码构建
+
+项目包含 GitHub Actions CI/CD，使用 PyInstaller 构建可执行文件：
+
+1. **自动构建**：在推送到 `main` 分支和拉取请求时触发
+2. **发布构建**：创建 git 标签（如 `v1.0.0`）触发发布并提供下载资源
+3. **本地构建**：安装 PyInstaller 并运行：
+   ```bash
+   pip install pyinstaller
+   pyinstaller file.py --add-data "static:static" --add-data "classic.html:." --name simple-file-server
+   ```
+
+CI/CD 流水线为 Windows 和 Linux 平台创建 `--onefile`（独立）和 `--onedir`（目录）两种构建。
+
 ---
 
 ## English Guide
