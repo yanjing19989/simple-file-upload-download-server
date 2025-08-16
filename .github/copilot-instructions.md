@@ -45,12 +45,6 @@ cd dist/SFS
 ./SFS --help
 ```
 
-### Embedded Build (Alternative)
-```bash
-# Embed static files into binary (takes 4-5 seconds)
-pyinstaller file.py --add-data "static:static" --add-data "classic.html:." --name SFS
-```
-
 ### Build Validation
 ```bash
 # Always test built executable functionality
