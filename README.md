@@ -94,42 +94,38 @@
 
 ### 预编译可执行文件
 
-Windows 和 Linux 平台的预编译可执行文件可从 [发布页面](https://github.com/yanjing19989/simple-file-upload-download-server/releases) 下载。提供两种构建类型：
+预编译的可执行文件可从 [发布页面](https://github.com/yanjing19989/simple-file-upload-download-server/releases) 下载。CI 目前创建以 `SFS` 为名的目录构建（分别针对 Linux/Windows），构建产物已调整如下：
 
-**目录构建**（推荐开发使用）：
-- Linux：`simple-file-server-linux-directory.tar.gz`
-- Windows：`simple-file-server-windows-directory.zip`
+**目录构建**：
+- Linux: `SFS-linux.tar.gz`
+- Windows: `SFS-windows.zip`
 
-解压后从文件夹中运行可执行文件。静态文件包含在 `_internal` 目录中。
+解压后请在解压目录中运行可执行文件。静态资源 `static/` 以及页面 `classic.html` 将被复制到与可执行文件相同的目录下（而非打包到 `_internal` 或嵌入到可执行文件内部），因此 web 界面可以直接访问这些文件。
 
-**独立构建**（单个可执行文件）：
-- Linux：`simple-file-server-linux-standalone.tar.gz`  
-- Windows：`simple-file-server-windows-standalone.zip`
+> 注意：CI 的目录构建会在 dist 中生成名为 `SFS` 的文件夹，里面包含可执行文件、`static/` 文件夹和 `classic.html`。
 
-单个可执行文件，内嵌所有资源。启动可能稍慢但更易分发。
-
-解压后使用：
-```bash
-# Linux
-./simple-file-server -p 8000
-
-# Windows  
-simple-file-server.exe -p 8000
-```
+---
 
 ### 从源码构建
 
-项目包含 GitHub Actions CI/CD，使用 PyInstaller 构建可执行文件：
+项目包含 GitHub Actions CI/CD，使用 PyInstaller 构建可执行文件。CI 的构建流程不再通过把静态资源嵌入到可执行文件内部来分发资源，而是构建完成后将 `static/` 与 `classic.html` 复制到可执行文件目录。要在本地模拟相同结果，可按以下步骤操作：
 
-1. **自动构建**：在推送到 `main` 分支和拉取请求时触发
-2. **发布构建**：创建 git 标签（如 `v1.0.0`）触发发布并提供下载资源
-3. **本地构建**：安装 PyInstaller 并运行：
-   ```bash
+1. 安装 PyInstaller：
+   ```powershell
    pip install pyinstaller
-   pyinstaller file.py --add-data "static:static" --add-data "classic.html:." --name simple-file-server
+   ```
+2. 使用 PyInstaller 生成目录构建：
+   ```powershell
+   pyinstaller --name SFS file.py
+   ```
+3. 将静态资源复制到生成的可执行文件所在目录（示例为 Windows 的 dist）：
+   ```powershell
+   # 假设在仓库根目录执行
+   xcopy /E /I static dist\SFS\static
+   copy classic.html dist\SFS\classic.html
    ```
 
-CI/CD 流水线为 Windows 和 Linux 平台创建 `--onefile`（独立）和 `--onedir`（目录）两种构建。
+但请注意：CI 当前策略是把资源放在可执行文件同级目录，以保证运行时能以预期方式从文件系统读取前端文件。
 
 ---
 
@@ -227,41 +223,37 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 
 ### Pre-built Binaries
 
-Pre-built executables are available for Windows and Linux from the [releases page](https://github.com/yanjing19989/simple-file-upload-download-server/releases). Two build types are provided:
+Pre-built executables for Windows and Linux are available from the project's [Releases page](https://github.com/yanjing19989/simple-file-upload-download-server/releases). The CI currently creates directory builds named `SFS` (for Linux/Windows). The artifacts have been adjusted as follows:
 
-**Directory builds** (recommended for development):
-- Linux: `simple-file-server-linux-directory.tar.gz`
-- Windows: `simple-file-server-windows-directory.zip`
+**Directory builds**:
+- Linux: `SFS-linux.tar.gz`
+- Windows: `SFS-windows.zip`
 
-Extract and run the executable from the folder. Static files are included in the `_internal` directory.
+After extraction, run the executable from the extracted folder. Important: the static assets (`static/`) and the `classic.html` page are copied into the same directory as the executable (they are NOT placed inside `_internal` or embedded inside the binary). This ensures the web UI can be loaded directly from the filesystem.
 
-**Standalone builds** (single executable):
-- Linux: `simple-file-server-linux-standalone.tar.gz`  
-- Windows: `simple-file-server-windows-standalone.zip`
+> Note: CI directory builds generate a `SFS` folder under `dist` that contains the executable, the `static/` folder and `classic.html`.
 
-Single executable file with embedded assets. May take longer to start but easier to distribute.
-
-Usage after extraction:
-```bash
-# Linux
-./simple-file-server -p 8000
-
-# Windows  
-simple-file-server.exe -p 8000
-```
+---
 
 ### Building from Source
 
-The project includes GitHub Actions CI/CD that builds binaries using PyInstaller:
+The project includes a GitHub Actions CI that builds binaries using PyInstaller. The CI build flow places static assets next to the executable (it does not rely on embedding them inside the binary). To reproduce the same result locally, follow these steps:
 
-1. **Automatic builds**: Triggered on push to `main` branch and pull requests
-2. **Release builds**: Create a git tag (e.g., `v1.0.0`) to trigger a release with downloadable assets
-3. **Local builds**: Install PyInstaller and run:
-   ```bash
+1. Install PyInstaller:
+   ```powershell
    pip install pyinstaller
-   pyinstaller file.py --add-data "static:static" --add-data "classic.html:." --name simple-file-server
+   ```
+2. Create a directory build locally:
+   ```powershell
+   pyinstaller --name SFS file.py
+   ```
+3. Copy the static assets to the produced executable directory (Windows example):
+   ```powershell
+   # Run from repository root
+   xcopy /E /I static dist\SFS\static
+   copy classic.html dist\SFS\classic.html
    ```
 
-The CI/CD pipeline creates both `--onefile` (standalone) and `--onedir` (directory) builds for Windows and Linux platforms.
+Keep in mind that the repository's CI uses the strategy of shipping `static/` and `classic.html` alongside the executable to ensure predictable runtime behavior when the server reads frontend files from the filesystem.
 
 
