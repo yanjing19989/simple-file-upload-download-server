@@ -83,7 +83,7 @@ jobs:
             a.scripts,
             [],
             exclude_binaries=True,
-            name='simple-file-server',
+            name='SFS',
             debug=False,
             bootloader_ignore_signals=False,
             strip=False,
@@ -102,29 +102,7 @@ jobs:
             strip=False,
             upx=True,
             upx_exclude=[],
-            name='simple-file-server',
-        )
-
-        # Single file build
-        exe_onefile = EXE(
-            pyz,
-            a.scripts,
-            a.binaries,
-            a.datas,
-            [],
-            name='simple-file-server-standalone',
-            debug=False,
-            bootloader_ignore_signals=False,
-            strip=False,
-            upx=True,
-            upx_exclude=[],
-            runtime_tmpdir=None,
-            console=True,
-            disable_windowed_traceback=False,
-            argv_emulation=False,
-            target_arch=None,
-            codesign_identity=None,
-            entitlements_file=None,
+            name='SFS',
         )
         SPECEOF
       shell: bash
@@ -135,11 +113,9 @@ jobs:
         echo "Verifying build outputs..."
         ls -la dist/
         if [ "${{ matrix.platform }}" = "windows" ]; then
-          test -f "dist/simple-file-server/simple-file-server.exe" || exit 1
-          test -f "dist/simple-file-server-standalone.exe" || exit 1
+          test -f "dist/SFS/SFS.exe" || exit 1
         else
-          test -f "dist/simple-file-server/simple-file-server" || exit 1
-          test -f "dist/simple-file-server-standalone" || exit 1
+          test -f "dist/SFS/SFS" || exit 1
         fi
         echo "Build verification completed successfully"
       shell: bash
@@ -148,71 +124,39 @@ jobs:
       run: |
         echo "Copying static files and classic.html to exe directory..."
         # Copy static folder and classic.html to the directory build location
-        cp -r static dist/simple-file-server/
-        cp classic.html dist/simple-file-server/
-        
-        # For standalone build, create a folder with static files
-        mkdir -p dist/simple-file-server-standalone-files
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          cp dist/simple-file-server-standalone.exe dist/simple-file-server-standalone-files/
-        else
-          cp dist/simple-file-server-standalone dist/simple-file-server-standalone-files/
-        fi
-        cp -r static dist/simple-file-server-standalone-files/
-        cp classic.html dist/simple-file-server-standalone-files/
+        cp -r static dist/SFS/
+        cp classic.html dist/SFS/
         
         echo "Static files copied successfully"
         echo "Directory structure after copying:"
-        ls -la dist/simple-file-server/
-        ls -la dist/simple-file-server-standalone-files/
+        ls -la dist/SFS/
       shell: bash
 
     - name: Create directory archive
       run: |
         cd dist
-        ${{ matrix.archive_cmd }} simple-file-server-${{ matrix.platform }}-directory.${{ matrix.archive_ext }} simple-file-server
-      shell: bash
-
-    - name: Create standalone archive
-      run: |
-        cd dist
-        ${{ matrix.archive_cmd }} simple-file-server-${{ matrix.platform }}-standalone.${{ matrix.archive_ext }} simple-file-server-standalone-files
+        ${{ matrix.archive_cmd }} SFS-${{ matrix.platform }}.${{ matrix.archive_ext }} SFS
       shell: bash
 
     - name: Upload directory build
       uses: actions/upload-artifact@v4
       with:
-        name: simple-file-server-${{ matrix.platform }}-directory
-        path: dist/simple-file-server-${{ matrix.platform }}-directory.${{ matrix.archive_ext }}
-
-    - name: Upload standalone build
-      uses: actions/upload-artifact@v4
-      with:
-        name: simple-file-server-${{ matrix.platform }}-standalone
-        path: dist/simple-file-server-${{ matrix.platform }}-standalone.${{ matrix.archive_ext }}
+        name: SFS-${{ matrix.platform }}
+        path: dist/SFS-${{ matrix.platform }}.${{ matrix.archive_ext }}
 
     - name: Test built executables
       run: |
         cd dist
         echo "Testing directory build..."
         if [ "${{ matrix.platform }}" = "windows" ]; then
-          ./simple-file-server/simple-file-server.exe --help || echo "Directory build help test completed"
+          ./SFS/SFS.exe --help || echo "Directory build help test completed"
         else
-          ./simple-file-server/simple-file-server --help || echo "Directory build help test completed"
-        fi
-        
-        echo "Testing standalone build..."
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          ./simple-file-server-standalone-files/simple-file-server-standalone.exe --help || echo "Standalone build help test completed"
-        else
-          ./simple-file-server-standalone-files/simple-file-server-standalone --help || echo "Standalone build help test completed"
+          ./SFS/SFS --help || echo "Directory build help test completed"
         fi
         
         echo "Verifying static files are present..."
-        test -d "simple-file-server/static" || echo "Warning: static directory not found in directory build"
-        test -f "simple-file-server/classic.html" || echo "Warning: classic.html not found in directory build"
-        test -d "simple-file-server-standalone-files/static" || echo "Warning: static directory not found in standalone build"
-        test -f "simple-file-server-standalone-files/classic.html" || echo "Warning: classic.html not found in standalone build"
+        test -d "SFS/static" || echo "Warning: static directory not found in directory build"
+        test -f "SFS/classic.html" || echo "Warning: classic.html not found in directory build"
       shell: bash
 
   release:
@@ -228,35 +172,24 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          simple-file-server-linux-directory/*
-          simple-file-server-linux-standalone/*
-          simple-file-server-windows-directory/*
-          simple-file-server-windows-standalone/*
+          SFS-linux/*
+          SFS-windows/*
         body: |
           ## Downloads
           
           **Directory builds** (includes all files in a folder):
-          - Linux: `simple-file-server-linux-directory.tar.gz`
-          - Windows: `simple-file-server-windows-directory.zip`
-          
-          **Standalone builds** (single executable with static files):
-          - Linux: `simple-file-server-linux-standalone.tar.gz`
-          - Windows: `simple-file-server-windows-standalone.zip`
+          - Linux: `SFS-linux.tar.gz`
+          - Windows: `SFS-windows.zip`
           
           ## Usage
           
           Extract and run:
           ```bash
           # Linux directory build
-          tar -xzf simple-file-server-linux-directory.tar.gz
-          cd simple-file-server
-          ./simple-file-server -p 8000
-          
-          # Linux standalone
-          tar -xzf simple-file-server-linux-standalone.tar.gz
-          cd simple-file-server-standalone-files
-          ./simple-file-server-standalone -p 8000
-          
+          tar -xzf SFS-linux.tar.gz
+          cd SFS
+          ./SFS -p 8000
+
           # Windows - extract and run .exe files from the respective folders
           ```
           
