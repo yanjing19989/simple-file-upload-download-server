@@ -4,6 +4,10 @@
 
 ---
 
+![界面展示](./picture/light-mode.jpg)
+
+![界面展示](./picture/dark-mode.jpg)
+
 ## 中文说明
 
 ### 简介
