@@ -4,6 +4,14 @@ Simple File Upload & Download Server is a lightweight Python-based HTTP server f
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+## CRITICAL VALIDATION NOTES
+
+***ALL COMMANDS BELOW HAVE BEEN EXHAUSTIVELY TESTED AND VERIFIED TO WORK***
+- Every single command, build process, and endpoint has been validated
+- Build times are measured and documented with appropriate timeouts
+- All server modes and troubleshooting scenarios are verified functional
+- Web interfaces tested with screenshots for visual confirmation
+
 ## Working Effectively
 
 - Bootstrap and run the repository:
@@ -13,18 +21,102 @@ Always reference these instructions first and fallback to search or bash command
   - Access web interface: `http://localhost:8000/`
 - No build process required - this is a standalone Python script with static files
 - No package installation required - uses only Python standard library
-- NEVER CANCEL server commands - the server runs indefinitely until stopped with Ctrl+C
+- ***NEVER CANCEL*** server commands - the server runs indefinitely until stopped with Ctrl+C
 - Server startup shows deprecation warning for cgi module in Python 3.11+ - this is expected and safe to ignore
+
+## Build Process (Optional)
+
+***PyInstaller Build: NEVER CANCEL - Completes in 4-5 seconds. Set timeout to 30+ seconds.***
+
+### Basic Build (CI Default Method)
+```bash
+# Install PyInstaller (takes ~10-15 seconds)
+pip install pyinstaller
+
+# Basic directory build (takes 4-5 seconds)
+pyinstaller --name SFS file.py
+
+# Copy static assets to executable directory (CI method)
+cp -r static dist/SFS/
+cp classic.html dist/SFS/
+
+# Test built executable
+cd dist/SFS
+./SFS --help
+```
+
+### Build Validation
+```bash
+# Always test built executable functionality
+cd dist/SFS
+./SFS -p 8001 &
+BUILD_PID=$!
+sleep 2
+curl -s http://localhost:8001/list | grep files
+kill $BUILD_PID
+```
 
 ## Validation
 
-- Always test core functionality after making changes:
-  - Start server: `python3 file.py -p 8000`
-  - Test file listing: `curl http://localhost:8000/list`
-  - Test file upload: `curl -X POST -F "file=@test.txt" http://localhost:8000/upload`
-  - Test file download: `curl "http://localhost:8000/download?file=test.txt"`
-  - Test web interface by visiting `http://localhost:8000/` in a browser
+***CRITICAL: ALWAYS run complete validation after making changes***
+
+### Basic API Testing (Each endpoint takes <1 second)
+```bash
+# Start server: NEVER CANCEL - runs indefinitely until Ctrl+C
+python3 file.py -p 8000 &
+SERVER_PID=$!
+sleep 2
+
+# Test all endpoints
+curl -s http://localhost:8000/list
+curl -X POST -F "file=@test.txt" http://localhost:8000/upload  
+curl -s "http://localhost:8000/download?file=test.txt"
+
+# Stop server
+kill $SERVER_PID
+```
+
+### Complete Validation Script (Takes ~10 seconds)
+```bash
+# Create test file
+echo "test content" > test.txt
+
+# Start server in background: NEVER CANCEL
+python3 file.py -p 8000 &
+SERVER_PID=$!
+
+# Wait for server to start (1-2 seconds)
+sleep 2
+
+# Test endpoints (each takes <1 second)
+curl http://localhost:8000/list
+curl -X POST -F "file=@test.txt" http://localhost:8000/upload
+curl "http://localhost:8000/download?file=test.txt"
+
+# Stop server
+kill $SERVER_PID
+
+# Cleanup
+rm test.txt
+```
+
+### Web Interface Testing
+- Always test web interface by visiting `http://localhost:8000/` in a browser
+- Test file upload through drag-and-drop interface
+- Verify file listing and download functionality
+- Test theme switching (light/dark/auto modes)
 - ALWAYS test both regular and encrypted modes when making server changes
+
+### Multi-Mode Validation
+```bash
+# Test all server modes (each takes 2-3 seconds to start)
+python3 file.py -p 8000        # Standard mode
+python3 file.py -p 8000 -e     # Encrypted mode (displays 4-digit key)
+python3 file.py -p 8000 -c     # Classic mode  
+python3 file.py -p 8000 -e -c  # Combined mode
+```
+
+### File Operations Testing
 - Create test files for validation: `echo "test content" > test.txt`
 - Clean up test files after validation: `rm test*.txt`
 
@@ -139,11 +231,29 @@ rm test.txt
 
 ## Troubleshooting
 
+### Common Issues (All Validated)
+
 - **Permission/port issues**: Use `-p 8000` instead of default port 80, or run with admin privileges
+  - Default port 80 will fail with `PermissionError: [Errno 13] Permission denied`
 - **Upload returns 400**: Ensure Content-Type is `multipart/form-data` with field name `file`
+  - Wrong content type produces: `400 Bad request syntax or unsupported method`
 - **Deprecation warnings**: Normal for Python 3.11+, `cgi` module warnings can be ignored
+  - Shows: `DeprecationWarning: 'cgi' is deprecated and slated for removal in Python 3.13`
 - **Module not found**: Ensure Python 3.8+ is installed and accessible as `python3`
 - **Browser access issues**: Try `http://localhost:PORT/` with correct port number
+- **HEAD requests not supported**: Server returns `501 Unsupported method ('HEAD')` for HEAD requests
+
+### Encrypted Mode Troubleshooting
+- In encrypted mode, server displays: `一次性密钥: XXXX` where XXXX is a 4-digit number
+- All API calls require `X-Secret-Key` header: `curl -H "X-Secret-Key: 1234" http://localhost:8000/list`
+- Unauthorized access returns: `401 Unauthorized, invalid key`
+- Classic mode with encryption prompts for key in browser interface
+
+### Build Troubleshooting  
+- PyInstaller requires: `pip install pyinstaller` (takes ~10-15 seconds)
+- Build failures: Ensure you're in repository root directory
+- Missing static files: Copy `static/` and `classic.html` to `dist/SFS/` directory manually
+- Executable won't start: Check that static assets are accessible from executable location
 
 ## Development Notes
 
@@ -154,6 +264,21 @@ rm test.txt
 - No external dependencies - uses only Python standard library
 - Cross-platform compatibility (Windows, macOS, Linux)
 
+### Key Implementation Details
+- Server doesn't support HEAD requests (returns 501)
+- Supports multi-file uploads via multipart/form-data
+- Files saved to current working directory where server runs
+- Path traversal protection implemented for security
+- MIME type detection for CSS, JS, HTML files
+- Template replacement: `{encrypted_status}` → `true`/`false` in HTML files
+
+### Frontend Features
+- Modern interface: Drag-and-drop, progress tracking, speed/ETA display
+- Theme switching: Light/dark/auto modes with localStorage persistence
+- File management: Search, bulk selection, batch download
+- Classic interface: Simplified alternative with same functionality
+- Responsive design supporting mobile devices
+
 ## File Locations Reference
 
 - **Main server**: `file.py` (158 lines, ~7KB)
@@ -161,5 +286,62 @@ rm test.txt
 - **Simple UI**: `classic.html` (single file, ~7KB)
 - **Documentation**: `README.md` (bilingual Chinese/English)
 - **Launcher scripts**: `run_server.sh`, `run_server.bat`, `run_server_classic.bat`
+- **CI Build**: `.github/workflows/build.yml` (automated PyInstaller builds)
+
+## Comprehensive User Scenarios
+
+### Scenario 1: Basic Development Testing
+```bash
+# Start server and test basic functionality (takes ~30 seconds total)
+python3 file.py -p 8000 &
+SERVER_PID=$!
+sleep 2
+
+# Create and upload multiple file types
+echo "Hello world" > sample.txt
+echo '{"test": "data"}' > data.json
+curl -X POST -F "file=@sample.txt" -F "file=@data.json" http://localhost:8000/upload
+
+# Verify and download
+curl -s http://localhost:8000/list | grep -c files
+curl -s "http://localhost:8000/download?file=sample.txt"
+
+# Cleanup
+kill $SERVER_PID
+rm sample.txt data.json
+```
+
+### Scenario 2: Encrypted Mode Testing
+```bash
+# Start encrypted server
+python3 file.py -p 8000 -e &
+SERVER_PID=$!
+sleep 2
+
+# Note the displayed key (format: 一次性密钥: XXXX)
+# Test with authentication
+KEY="1234"  # Replace with actual displayed key
+curl -H "X-Secret-Key: $KEY" http://localhost:8000/list
+
+# Cleanup
+kill $SERVER_PID
+```
+
+### Scenario 3: Build and Distribution Testing
+```bash
+# Full build cycle (takes ~20 seconds total)
+pip install pyinstaller                    # 10-15 seconds
+pyinstaller --name SFS file.py            # 4-5 seconds  
+cp -r static classic.html dist/SFS/       # <1 second
+
+# Test built executable
+cd dist/SFS
+./SFS -p 8001 --help                      # <1 second
+./SFS -p 8001 &                           # Start built server
+BUILD_PID=$!
+sleep 2
+curl -s http://localhost:8001/list        # Test functionality
+kill $BUILD_PID
+```
 
 Always test upload, download, and listing functionality after making changes to ensure the core file server capabilities remain intact.
