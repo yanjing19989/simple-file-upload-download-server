@@ -142,6 +142,7 @@ jobs:
           test -f "dist/simple-file-server-standalone" || exit 1
         fi
         echo "Build verification completed successfully"
+      shell: bash
 
     - name: Create directory archive
       run: |
