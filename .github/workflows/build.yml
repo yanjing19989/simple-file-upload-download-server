@@ -65,8 +65,8 @@ jobs:
             pathex=[],
             binaries=[],
             datas=[
-                ('static', 'static'),
-                ('classic.html', '.'),
+                # Static files and classic.html will be copied manually after build
+                # to ensure they are in the same directory as the executable
             ],
             hiddenimports=[],
             hookspath=[],
@@ -144,6 +144,29 @@ jobs:
         echo "Build verification completed successfully"
       shell: bash
 
+    - name: Copy static files to exe directory
+      run: |
+        echo "Copying static files and classic.html to exe directory..."
+        # Copy static folder and classic.html to the directory build location
+        cp -r static dist/simple-file-server/
+        cp classic.html dist/simple-file-server/
+        
+        # For standalone build, create a folder with static files
+        mkdir -p dist/simple-file-server-standalone-files
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          cp dist/simple-file-server-standalone.exe dist/simple-file-server-standalone-files/
+        else
+          cp dist/simple-file-server-standalone dist/simple-file-server-standalone-files/
+        fi
+        cp -r static dist/simple-file-server-standalone-files/
+        cp classic.html dist/simple-file-server-standalone-files/
+        
+        echo "Static files copied successfully"
+        echo "Directory structure after copying:"
+        ls -la dist/simple-file-server/
+        ls -la dist/simple-file-server-standalone-files/
+      shell: bash
+
     - name: Create directory archive
       run: |
         cd dist
@@ -153,11 +176,7 @@ jobs:
     - name: Create standalone archive
       run: |
         cd dist
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          ${{ matrix.archive_cmd }} simple-file-server-${{ matrix.platform }}-standalone.${{ matrix.archive_ext }} simple-file-server-standalone.exe
-        else
-          ${{ matrix.archive_cmd }} simple-file-server-${{ matrix.platform }}-standalone.${{ matrix.archive_ext }} simple-file-server-standalone
-        fi
+        ${{ matrix.archive_cmd }} simple-file-server-${{ matrix.platform }}-standalone.${{ matrix.archive_ext }} simple-file-server-standalone-files
       shell: bash
 
     - name: Upload directory build
@@ -184,10 +203,16 @@ jobs:
         
         echo "Testing standalone build..."
         if [ "${{ matrix.platform }}" = "windows" ]; then
-          ./simple-file-server-standalone.exe --help || echo "Standalone build help test completed"
+          ./simple-file-server-standalone-files/simple-file-server-standalone.exe --help || echo "Standalone build help test completed"
         else
-          ./simple-file-server-standalone --help || echo "Standalone build help test completed"
+          ./simple-file-server-standalone-files/simple-file-server-standalone --help || echo "Standalone build help test completed"
         fi
+        
+        echo "Verifying static files are present..."
+        test -d "simple-file-server/static" || echo "Warning: static directory not found in directory build"
+        test -f "simple-file-server/classic.html" || echo "Warning: classic.html not found in directory build"
+        test -d "simple-file-server-standalone-files/static" || echo "Warning: static directory not found in standalone build"
+        test -f "simple-file-server-standalone-files/classic.html" || echo "Warning: classic.html not found in standalone build"
       shell: bash
 
   release:
@@ -214,7 +239,7 @@ jobs:
           - Linux: `simple-file-server-linux-directory.tar.gz`
           - Windows: `simple-file-server-windows-directory.zip`
           
-          **Standalone builds** (single executable file):
+          **Standalone builds** (single executable with static files):
           - Linux: `simple-file-server-linux-standalone.tar.gz`
           - Windows: `simple-file-server-windows-standalone.zip`
           
@@ -229,11 +254,14 @@ jobs:
           
           # Linux standalone
           tar -xzf simple-file-server-linux-standalone.tar.gz
+          cd simple-file-server-standalone-files
           ./simple-file-server-standalone -p 8000
           
-          # Windows - extract and run .exe files
+          # Windows - extract and run .exe files from the respective folders
           ```
           
           Visit `http://localhost:8000` in your browser after starting the server.
+          
+          **Note**: All builds now include the `static/` folder and `classic.html` file in the same directory as the executable, ensuring proper web interface functionality.
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
