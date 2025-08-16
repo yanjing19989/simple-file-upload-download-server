@@ -41,92 +41,92 @@ jobs:
         python file.py --help
         echo "test content" > test.txt
         python -c "
-import os, json
-from file import UploadHTTPRequestHandler
-print('Application imports successfully')
-if os.path.exists('static/index.html'):
-    print('Static files found')
-if os.path.exists('classic.html'):
-    print('Classic HTML found')
-# Test that we can create the server class
-handler = UploadHTTPRequestHandler
-print('Server handler class created successfully')
-"
+        import os, json
+        from file import UploadHTTPRequestHandler
+        print('Application imports successfully')
+        if os.path.exists('static/index.html'):
+            print('Static files found')
+        if os.path.exists('classic.html'):
+            print('Classic HTML found')
+        # Test that we can create the server class
+        handler = UploadHTTPRequestHandler
+        print('Server handler class created successfully')
+        "
         rm test.txt
       shell: bash
 
     - name: Create PyInstaller spec file
       run: |
-        cat > file.spec << 'EOF'
-# -*- mode: python ; coding: utf-8 -*-
+        cat > file.spec << 'SPECEOF'
+        # -*- mode: python ; coding: utf-8 -*-
 
-a = Analysis(
-    ['file.py'],
-    pathex=[],
-    binaries=[],
-    datas=[
-        ('static', 'static'),
-        ('classic.html', '.'),
-    ],
-    hiddenimports=[],
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[],
-    noarchive=False,
-)
-pyz = PYZ(a.pure)
+        a = Analysis(
+            ['file.py'],
+            pathex=[],
+            binaries=[],
+            datas=[
+                ('static', 'static'),
+                ('classic.html', '.'),
+            ],
+            hiddenimports=[],
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=[],
+            noarchive=False,
+        )
+        pyz = PYZ(a.pure)
 
-# Directory build
-exe_dir = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name='simple-file-server',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    console=True,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-coll = COLLECT(
-    exe_dir,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='simple-file-server',
-)
+        # Directory build
+        exe_dir = EXE(
+            pyz,
+            a.scripts,
+            [],
+            exclude_binaries=True,
+            name='simple-file-server',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=True,
+            console=True,
+            disable_windowed_traceback=False,
+            argv_emulation=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+        )
+        coll = COLLECT(
+            exe_dir,
+            a.binaries,
+            a.datas,
+            strip=False,
+            upx=True,
+            upx_exclude=[],
+            name='simple-file-server',
+        )
 
-# Single file build
-exe_onefile = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.datas,
-    [],
-    name='simple-file-server-standalone',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=True,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-EOF
+        # Single file build
+        exe_onefile = EXE(
+            pyz,
+            a.scripts,
+            a.binaries,
+            a.datas,
+            [],
+            name='simple-file-server-standalone',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=True,
+            upx_exclude=[],
+            runtime_tmpdir=None,
+            console=True,
+            disable_windowed_traceback=False,
+            argv_emulation=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+        )
+        SPECEOF
       shell: bash
 
     - name: Build with PyInstaller
