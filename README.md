@@ -254,18 +254,6 @@ The project includes a GitHub Actions CI that builds binaries using PyInstaller.
    copy classic.html dist\SFS\classic.html
    ```
 
-If you prefer to embed static files into the binary (not the CI default), you can use PyInstaller's --add-data option. Note the platform-dependent separator between source and destination (`;` on Windows, `:` on Unix):
-
-```powershell
-# Windows embedding example
-pyinstaller file.py --add-data "static;static" --add-data "classic.html;." --name SFS
-```
-
-```bash
-# Linux/macOS embedding example
-pyinstaller file.py --add-data "static:static" --add-data "classic.html:." --name SFS
-```
-
 Keep in mind that the repository's CI uses the strategy of shipping `static/` and `classic.html` alongside the executable to ensure predictable runtime behavior when the server reads frontend files from the filesystem.
 
 
