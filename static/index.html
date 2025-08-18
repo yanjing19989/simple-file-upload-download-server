@@ -14,6 +14,20 @@
         <div class="logo">文件中心 <span class="badge">v1</span></div>
         <div class="actions">
             <button class="btn-outline toggle-theme" id="themeBtn" title="切换主题">🌗</button>
+            <!-- 主题色按钮（主按钮 + 子菜单） -->
+            <div style="position:relative;">
+                <button class="btn-outline" id="themeColorBtn" title="主题色">🎨</button>
+                <div id="themePaletteMenu" style="display:none; position:absolute; right:0; margin-top:10px; background:var(--card-bg); border:var(--border); padding:8px; border-radius:10px; box-shadow:var(--shadow); min-width:180px;">                    <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-start;">
+                        <button class="palette-btn" data-color="#6366f1" title="靛蓝经典"></button>
+                        <button class="palette-btn" data-color="#8b5cf6" title="紫罗兰"></button>
+                        <button class="palette-btn" data-color="#06b6d4" title="青蓝"></button>
+                        <button class="palette-btn" data-color="#10b981" title="翡翠绿"></button>
+                        <button class="palette-btn" data-color="#f59e0b" title="琥珀金"></button>
+                        <button class="palette-btn" data-color="#ef4444" title="珊瑚红"></button>
+                        <button class="palette-btn" data-color="#ec4899" title="玫瑰粉"></button>
+                    </div>
+                </div>
+            </div>
             <button class="btn-outline" id="resetKeyBtn" style="display:none;">重置密钥</button>
             <button class="btn-ghost" id="aboutBtn">关于</button>
         </div>
