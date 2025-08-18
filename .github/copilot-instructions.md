@@ -28,7 +28,16 @@ Always reference these instructions first and fallback to search or bash command
 
 ***PyInstaller Build: NEVER CANCEL - Completes in 4-5 seconds. Set timeout to 30+ seconds.***
 
-### Basic Build (CI Default Method)
+### Automated CI Build Pipeline
+The repository includes a complete CI/CD pipeline at `.github/workflows/build.yml` that:
+- Builds for both Linux and Windows platforms
+- Uses PyInstaller for executable creation
+- Automatically copies static assets and classic.html to build directories
+- Creates platform-specific archives (tar.gz for Linux, zip for Windows)
+- Tests built executables for functionality
+- Publishes releases on tagged commits
+
+### Manual Build (CI Default Method)
 ```bash
 # Install PyInstaller (takes ~10-15 seconds)
 pip install pyinstaller
@@ -172,6 +181,9 @@ run_server.bat         # Windows batch script (port 80)
 run_server.sh          # Linux/macOS script (port 8000)
 run_server_classic.bat # Windows classic mode script
 static/                # Modern frontend assets
+picture/               # UI screenshots for documentation
+.github/               # GitHub workflows and project configuration
+.gitignore             # Git ignore rules
 ```
 
 ### Static Directory
@@ -183,6 +195,18 @@ static/files.js        # File operations (upload, download, list)
 static/theme.js        # Theme switching and color palette logic
 static/ui.js           # UI interactions, drag-drop, toast notifications
 static/utils.js        # Utility functions (formatting, icons, escaping)
+```
+
+### Documentation Assets
+```
+picture/light-mode.jpg # Light mode UI screenshot for README
+picture/dark-mode.jpg  # Dark mode UI screenshot for README
+```
+
+### GitHub Configuration
+```
+.github/workflows/build.yml    # Automated CI/CD pipeline for PyInstaller builds
+.github/copilot-instructions.md # This documentation file
 ```
 
 ## Common Tasks
@@ -259,6 +283,36 @@ rm test.txt
 - Missing static files: Copy `static/` and `classic.html` to `dist/SFS/` directory manually
 - Executable won't start: Check that static assets are accessible from executable location
 
+### CI/CD Pipeline
+The automated build process includes:
+- Cross-platform testing (Ubuntu and Windows)
+- Dependency validation and import testing
+- PyInstaller directory builds with automatic asset copying
+- Functional testing of built executables
+- Archive creation for distribution (tar.gz/zip)
+- Automated release publishing for tagged commits
+
+### CI Build Validation
+```bash
+# The CI pipeline runs comprehensive validation including:
+# 1. Python import testing
+python -c "
+import os, json
+from file import UploadHTTPRequestHandler
+print('Application imports successfully')
+if os.path.exists('static/index.html'):
+    print('Static files found')
+if os.path.exists('classic.html'):
+    print('Classic HTML found')
+handler = UploadHTTPRequestHandler
+print('Server handler class created successfully')
+"
+
+# 2. Build artifact verification
+# 3. Static file copy validation
+# 4. Executable functionality testing
+```
+
 ## Development Notes
 
 - Main server logic in `file.py` class `UploadHTTPRequestHandler`
@@ -293,6 +347,15 @@ The modules are loaded in order and expose their APIs through global window obje
 - Classic interface: Simplified alternative with same functionality
 - Responsive design supporting mobile devices
 - Modular JavaScript architecture for maintainability
+- Visual documentation with light/dark mode screenshots
+
+### Repository Assets
+- Complete README with bilingual documentation (Chinese/English)
+- MIT license for open source distribution
+- Visual documentation with UI screenshots in light and dark modes
+- Comprehensive .gitignore for Python and build artifacts
+- Automated GitHub Actions workflow for cross-platform builds
+- Platform-specific launcher scripts for quick deployment
 
 ## File Locations Reference
 
@@ -301,8 +364,10 @@ The modules are loaded in order and expose their APIs through global window obje
 - **Frontend modules**: `static/auth.js`, `static/files.js`, `static/theme.js`, `static/ui.js`, `static/utils.js`
 - **Simple UI**: `classic.html` (single file, ~7KB)
 - **Documentation**: `README.md` (bilingual Chinese/English)
+- **UI Screenshots**: `picture/light-mode.jpg`, `picture/dark-mode.jpg`
 - **Launcher scripts**: `run_server.sh`, `run_server.bat`, `run_server_classic.bat`
 - **CI Build**: `.github/workflows/build.yml` (automated PyInstaller builds)
+- **Configuration**: `.gitignore`, `LICENSE`, `.github/copilot-instructions.md`
 
 ## Comprehensive User Scenarios
 
