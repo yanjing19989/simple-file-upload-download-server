@@ -178,7 +178,11 @@ static/                # Modern frontend assets
 ```
 static/index.html      # Modern web interface
 static/style.css       # Styles with dark mode support
-static/app.js          # Frontend JavaScript with upload progress
+static/auth.js         # Authentication handling for encrypted mode
+static/files.js        # File operations: upload, download, listing
+static/theme.js        # Theme switching and color palette management
+static/ui.js           # UI components and interactions
+static/utils.js        # Utility functions and helpers
 ```
 
 ## Common Tasks
@@ -281,8 +285,8 @@ rm test.txt
 
 ## File Locations Reference
 
-- **Main server**: `file.py` (158 lines, ~7KB)
-- **Modern UI**: `static/index.html`, `static/style.css`, `static/app.js`
+- **Main server**: `file.py` (157 lines, ~7KB)
+- **Modern UI**: `static/index.html`, `static/style.css`, `static/auth.js`, `static/files.js`, `static/theme.js`, `static/ui.js`, `static/utils.js`
 - **Simple UI**: `classic.html` (single file, ~7KB)
 - **Documentation**: `README.md` (bilingual Chinese/English)
 - **Launcher scripts**: `run_server.sh`, `run_server.bat`, `run_server_classic.bat`
