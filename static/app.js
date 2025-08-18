@@ -22,6 +22,14 @@ function applyTheme(mode) {
             try { colorSchemeMQ.addEventListener('change', mqListener); } catch (e) { try { colorSchemeMQ.addListener(mqListener); } catch (e) { } }
         }
     }
+    try {
+        const btn = document.getElementById('themeBtn');
+        if (btn) {
+            const icons = { light: '☀️', dark: '🌙', auto: '🌗' };
+            btn.textContent = icons[mode] || '🌗';
+            btn.title = '切换主题（当前：' + (mode === 'light' ? '浅色' : mode === 'dark' ? '深色' : '自动') + '）';
+        }
+    } catch (e) { }
 }
 (function () {
     const saved = localStorage.getItem(userPrefKey);
