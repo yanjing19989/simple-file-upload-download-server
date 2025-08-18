@@ -80,6 +80,17 @@ themeBtn.addEventListener('click', () => {
             requestAnimationFrame(() => { menu.classList.remove('hide'); menu.classList.add('show'); });
         }
     });
+    // 绑定恢复默认主题按钮
+    const resetBtn = menu.querySelector('.reset-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetThemeColor();
+            // 关闭菜单
+            menu.classList.remove('show'); menu.classList.add('hide');
+            setTimeout(() => { menu.style.display = 'none'; }, 180);
+        });
+    }
     // 点击页面任意处关闭菜单
     document.addEventListener('click', (e) => {
         if (!menu.contains(e.target) && e.target !== mainBtn) {
@@ -144,6 +155,42 @@ function applyThemeColor(hex) {
             document.head.appendChild(darkModeStyle);
         }
     } catch (e) { console.error('theme color apply error', e); }
+}
+
+// 重置主题色回到默认
+function resetThemeColor() {
+    try {
+        localStorage.removeItem('fs_theme_color');
+        // 移除动态深色样式
+        const dyn = document.getElementById('dynamicDarkBg');
+        if (dyn && dyn.parentNode) dyn.parentNode.removeChild(dyn);
+        // 恢复 CSS 变量到默认（可调整为项目默认值）
+        const root = document.documentElement.style;
+        root.removeProperty('--primary');
+        root.removeProperty('--primary-mid');
+        root.removeProperty('--primary-dark');
+        root.removeProperty('--primary-2');
+        root.removeProperty('--primary-3');
+        root.removeProperty('--primary-rgb');
+        root.removeProperty('--grad');
+        root.removeProperty('--bg-light');
+        root.removeProperty('--bg-mid');
+        root.removeProperty('--bg-dark');
+        root.removeProperty('--bg-dark-mid');
+        // 清除内联 body 背景
+        document.body.style.background = '';
+        document.body.style.backgroundAttachment = '';
+        // 取消选中 palette 中的按钮状态
+        const menu = document.getElementById('themePaletteMenu');
+        if (menu) {
+            const sel = menu.querySelectorAll('.palette-btn.selected');
+            sel.forEach(s => s.classList.remove('selected'));
+        }
+        showToast('已恢复为默认主题色', 'ok');
+    } catch (e) {
+        console.error('resetThemeColor error', e);
+        showToast('恢复默认主题失败', 'err');
+    }
 }
 
 // 色彩工具函数
