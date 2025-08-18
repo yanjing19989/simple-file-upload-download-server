@@ -25,6 +25,7 @@
 - 增强型现代界面（卡片式布局、毛玻璃效果）
 - 拖拽上传支持
 - 手动主题切换（浅色/深色/自动）
+- 主题色彩定制（7种预设颜色和重置选项）
 - 文件搜索与批量操作
 - 实时速度与预计完成时间显示
 - 响应式设计，支持移动设备
@@ -68,6 +69,7 @@
 - 上传：拖拽文件到上传区域或点击"浏览选择"，支持多文件上传，实时显示上传进度、速度和预计完成时间
 - 列表：自动加载文件列表，支持搜索过滤、全选/反选、批量下载
 - 主题：点击右上角主题按钮切换浅色/深色/自动模式
+- 主题色：点击调色板按钮（🎨）选择预设颜色或重置为默认主题
 - 下载：选中文件后点击"下载所选"，支持批量下载
 
 **经典界面（`-c` 启用）：**
@@ -150,6 +152,7 @@ A tiny file upload/download server built on Python's built-in `http.server`. Sin
 - Enhanced modern interface (card layout with glassmorphism effects)
 - Drag and drop file upload support
 - Manual theme switching (light/dark/auto)
+- Theme color customization (7 preset colors and reset option)
 - File search and bulk operations
 - Real-time speed and ETA display
 - Responsive design for mobile devices
@@ -193,6 +196,7 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 - Upload: Drag files to upload area or click "Browse" button. Supports multi-file upload with real-time progress, speed, and ETA display
 - List: Auto-loads file list with search filtering, select all/invert selection, and bulk download support
 - Theme: Click theme button in top-right corner to switch between light/dark/auto modes
+- Color Theme: Click color palette button (🎨) to select preset colors or reset to default theme
 - Download: Select files and click "Download Selected" for bulk downloads
 
 **Classic Interface (`-c` enabled):**

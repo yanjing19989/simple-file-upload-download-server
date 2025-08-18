@@ -105,6 +105,7 @@ rm test.txt
 - Test file upload through drag-and-drop interface
 - Verify file listing and download functionality
 - Test theme switching (light/dark/auto modes)
+- Test theme color customization (preset color palette)
 - ALWAYS test both regular and encrypted modes when making server changes
 
 ### Multi-Mode Validation
@@ -152,6 +153,38 @@ python3 file.py -p 8000 -e -c
 ```
 - Classic interface with encryption enabled
 
+## Theme Customization Features
+
+### Color Palette System
+- **Access**: Click the 🎨 (theme color) button in the web interface
+- **Preset Colors**: 7 built-in color themes (Indigo, Violet, Cyan, Emerald, Amber, Coral Red, Rose Pink)
+- **Reset Option**: "C" button to restore default theme colors
+- **Persistence**: Selected theme color saved in localStorage as `fs_theme_color`
+- **Dynamic CSS**: Real-time CSS custom property updates for primary colors and gradients
+
+### Theme Color Testing
+```bash
+# Start server and test theme functionality
+python3 file.py -p 8000 &
+SERVER_PID=$!
+sleep 2
+
+# Access web interface and test:
+# 1. Click 🎨 button to open color palette
+# 2. Select different preset colors
+# 3. Verify UI updates (buttons, progress bars, icons)
+# 4. Test reset to default functionality
+# 5. Refresh page to confirm persistence
+
+kill $SERVER_PID
+```
+
+### Color Palette Implementation
+- **Color Generation**: HSL color space manipulation for consistent variations
+- **CSS Variables**: Dynamic `--primary`, `--primary-mid`, `--primary-dark`, `--primary-rgb` updates
+- **Background Gradients**: Automatic generation of complementary background colors
+- **Dark Mode Support**: Theme colors work in both light and dark modes
+
 ## API Endpoints
 
 - `GET /` - Returns web frontend (index.html or classic.html based on mode)
@@ -177,8 +210,12 @@ static/                # Modern frontend assets
 ### Static Directory
 ```
 static/index.html      # Modern web interface
-static/style.css       # Styles with dark mode support
-static/app.js          # Frontend JavaScript with upload progress
+static/style.css       # Styles with dark mode and theme color support
+static/auth.js         # Authentication and key handling
+static/files.js        # File operations (upload, download, listing)
+static/theme.js        # Theme management and color palette
+static/ui.js           # UI helpers and interactions
+static/utils.js        # Utility functions (formatting, icons, etc.)
 ```
 
 ## Common Tasks
@@ -258,7 +295,7 @@ rm test.txt
 ## Development Notes
 
 - Main server logic in `file.py` class `UploadHTTPRequestHandler`
-- Frontend uses vanilla JavaScript with progress tracking and dark mode
+- Frontend uses modular vanilla JavaScript with progress tracking, theme management, and color customization
 - Encryption mode generates random 4-digit keys per server start
 - Static files served directly from filesystem
 - No external dependencies - uses only Python standard library
@@ -272,9 +309,21 @@ rm test.txt
 - MIME type detection for CSS, JS, HTML files
 - Template replacement: `{encrypted_status}` → `true`/`false` in HTML files
 
+### Frontend Architecture (Post-PR #18)
+- **Modular JavaScript**: Frontend split into focused modules for maintainability
+  - `auth.js`: Authentication state and key management
+  - `files.js`: File upload, download, and listing operations
+  - `theme.js`: Theme switching and color palette management
+  - `ui.js`: UI interactions, drag-and-drop, progress display
+  - `utils.js`: Utility functions for formatting, escaping, file icons
+- **Theme System**: Dynamic CSS custom properties for color theming
+- **Script Loading Order**: utils.js → theme.js → auth.js → ui.js → files.js
+- **Global Namespacing**: Modules expose APIs via `window.FSAuth`, `window.FSFiles`, `window.FSUtils`
+
 ### Frontend Features
 - Modern interface: Drag-and-drop, progress tracking, speed/ETA display
 - Theme switching: Light/dark/auto modes with localStorage persistence
+- Theme customization: Customizable color palette with preset accent colors
 - File management: Search, bulk selection, batch download
 - Classic interface: Simplified alternative with same functionality
 - Responsive design supporting mobile devices
@@ -282,7 +331,12 @@ rm test.txt
 ## File Locations Reference
 
 - **Main server**: `file.py` (158 lines, ~7KB)
-- **Modern UI**: `static/index.html`, `static/style.css`, `static/app.js`
+- **Modern UI**: `static/index.html`, `static/style.css`, and modular JavaScript:
+  - `static/auth.js` - Authentication and key handling
+  - `static/files.js` - File operations (upload, download, listing)
+  - `static/theme.js` - Theme management and color palette
+  - `static/ui.js` - UI helpers and interactions  
+  - `static/utils.js` - Utility functions
 - **Simple UI**: `classic.html` (single file, ~7KB)
 - **Documentation**: `README.md` (bilingual Chinese/English)
 - **Launcher scripts**: `run_server.sh`, `run_server.bat`, `run_server_classic.bat`
