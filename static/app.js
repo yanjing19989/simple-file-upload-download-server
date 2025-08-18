@@ -104,12 +104,11 @@ function applyThemeColor(hex) {
         const rgb = hexToRgb(hex);
         const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
         const primary = hex;
-        
-        // 优化色彩生成算法
-        const primaryMid = hslToHex(hsl.h, clamp(hsl.s * 0.98, 0.4, 1), clamp(hsl.l * 1.1, 0.45, 0.7));
-        const primaryDark = hslToHex(hsl.h, clamp(hsl.s * 1.1, 0.6, 1), clamp(hsl.l * 0.7, 0.2, 0.5));
-        const primary2 = hslToHex(hsl.h, clamp(hsl.s * 0.8, 0.3, 1), clamp(hsl.l * 1.4, 0.7, 0.9));
-        const primary3 = hslToHex(hsl.h, clamp(hsl.s * 0.9, 0.4, 1), clamp(hsl.l * 1.15, 0.55, 0.8));
+          // 优化色彩生成算法 - 生成更柔和、协调的色彩
+        const primaryMid = hslToHex(hsl.h, clamp(hsl.s * 0.95, 0.4, 0.9), clamp(hsl.l * 1.05, 0.45, 0.65));
+        const primaryDark = hslToHex(hsl.h, clamp(hsl.s * 1.05, 0.6, 1), clamp(hsl.l * 0.75, 0.25, 0.45));
+        const primary2 = hslToHex(hsl.h, clamp(hsl.s * 0.75, 0.3, 0.8), clamp(hsl.l * 1.3, 0.7, 0.85));
+        const primary3 = hslToHex(hsl.h, clamp(hsl.s * 0.85, 0.4, 0.9), clamp(hsl.l * 1.1, 0.55, 0.75));
         const rgbVals = `${parseInt(rgb.r)},${parseInt(rgb.g)},${parseInt(rgb.b)}`;
         
         // 生成更自然的背景渐变色

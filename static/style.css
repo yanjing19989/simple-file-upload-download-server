@@ -25,15 +25,16 @@ header { display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-con
 @media (max-width:480px) { .palette-btn { width:24px; height:24px; } }
 button, .btn { --btn-bg:#475569; --btn-bg-hover:#334155; font:600 14px/1 system-ui,-apple-system; padding:11px 18px; border-radius:12px; border:1px solid rgba(255,255,255,.15); cursor:pointer; background:var(--btn-bg); color:#fff; display:inline-flex; gap:8px; align-items:center; justify-content:center; position:relative; transition:.25s; letter-spacing:.3px; }
 button:hover { background:var(--btn-bg-hover); box-shadow:0 4px 14px -4px rgba(0,0,0,.4); }
-.btn-primary { --btn-bg:var(--primary); --btn-bg-hover:var(--primary-dark); background:var(--grad); border:none; }
-.btn-accent { --btn-bg:#11998e; --btn-bg-hover:#0e7f76; background:var(--grad-accent); border:none; }
-.btn-outline { background:transparent; color:var(--text); border:1px solid rgba(99,102,241,.35); }
-.btn-outline:hover { background:rgba(99,102,241,.08); }
+.btn-primary { --btn-bg:var(--primary); --btn-bg-hover:var(--primary-dark); background:rgba(var(--primary-rgb),.85); border:none; }
+.btn-primary:hover { background:rgba(var(--primary-rgb),.95); }
+.btn-outline { background:transparent; color:var(--text); border:1px solid rgba(var(--primary-rgb),.35); }
+.btn-outline:hover { background:rgba(var(--primary-rgb),.08); }
 .btn-ghost { background:transparent; color:var(--muted); border:1px solid transparent; }
 .btn-ghost:hover { color:var(--text); background:rgba(148,163,184,.15); }
-.dark-mode .btn-outline { color:#cbd5e1; }
+.dark-mode .btn-outline { color:#cbd5e1; border-color:rgba(var(--primary-rgb),.25); }
+.dark-mode .btn-outline:hover { background:rgba(var(--primary-rgb),.12); }
 input[type=file] { display:none; }
-#selectLabel { --btn-bg:var(--primary-mid); --btn-bg-hover:var(--primary-dark); }
+#selectLabel { --btn-bg:var(--primary-mid); --btn-bg-hover:var(--primary-dark); background:linear-gradient(135deg, var(--primary-mid), var(--primary)); }
 .grid { display:grid; gap:24px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); align-items:start; }
 .card { background:var(--card-bg); border:var(--border); border-radius:24px; padding:24px 22px 26px; position:relative; backdrop-filter:blur(var(--blur)); overflow:hidden; box-shadow:var(--shadow); }
 .card h2 { margin:0 0 18px; font-size:1.05rem; font-weight:600; letter-spacing:.5px; display:flex; align-items:center; gap:8px; }
