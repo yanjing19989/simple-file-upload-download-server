@@ -178,7 +178,11 @@ static/                # Modern frontend assets
 ```
 static/index.html      # Modern web interface
 static/style.css       # Styles with dark mode support
-static/app.js          # Frontend JavaScript with upload progress
+static/auth.js         # Authentication and key management
+static/files.js        # File operations (upload, download, list)
+static/theme.js        # Theme switching and color palette logic
+static/ui.js           # UI interactions, drag-drop, toast notifications
+static/utils.js        # Utility functions (formatting, icons, escaping)
 ```
 
 ## Common Tasks
@@ -272,17 +276,29 @@ rm test.txt
 - MIME type detection for CSS, JS, HTML files
 - Template replacement: `{encrypted_status}` → `true`/`false` in HTML files
 
+### JavaScript Module Architecture
+The frontend has been modularized for maintainability:
+- `utils.js`: Common utility functions (escapeHtml, formatSize, extIcon) → `window.FSUtils`
+- `theme.js`: Theme and color palette management (auto/light/dark mode, theme persistence)
+- `auth.js`: Authentication and key management (getKey, resetKey) → `window.FSAuth`
+- `ui.js`: UI interactions (showToast, DOM binding, drag-drop, table rendering)
+- `files.js`: File operations (upload, refresh, download) → `window.FSFiles`
+
+The modules are loaded in order and expose their APIs through global window objects for inter-module communication.
+
 ### Frontend Features
 - Modern interface: Drag-and-drop, progress tracking, speed/ETA display
 - Theme switching: Light/dark/auto modes with localStorage persistence
 - File management: Search, bulk selection, batch download
 - Classic interface: Simplified alternative with same functionality
 - Responsive design supporting mobile devices
+- Modular JavaScript architecture for maintainability
 
 ## File Locations Reference
 
 - **Main server**: `file.py` (158 lines, ~7KB)
-- **Modern UI**: `static/index.html`, `static/style.css`, `static/app.js`
+- **Modern UI**: `static/index.html`, `static/style.css`
+- **Frontend modules**: `static/auth.js`, `static/files.js`, `static/theme.js`, `static/ui.js`, `static/utils.js`
 - **Simple UI**: `classic.html` (single file, ~7KB)
 - **Documentation**: `README.md` (bilingual Chinese/English)
 - **Launcher scripts**: `run_server.sh`, `run_server.bat`, `run_server_classic.bat`
