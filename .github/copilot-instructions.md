@@ -190,6 +190,7 @@ kill $SERVER_PID
 - `GET /` - Returns web frontend (index.html or classic.html based on mode)
 - `GET /list` - JSON list of files with names and sizes
 - `GET /download?file=<filename>` - Download specific file
+- `HEAD /download?file=<filename>` - Get file info
 - `POST /upload` - Upload files using multipart/form-data with field name "file"
 - `GET /static/*` - Static assets (CSS, JS) for modern interface
 
@@ -324,7 +325,7 @@ rm test.txt
 - Modern interface: Drag-and-drop, progress tracking, speed/ETA display
 - Theme switching: Light/dark/auto modes with localStorage persistence
 - Theme customization: Customizable color palette with preset accent colors
-- File management: Search, bulk selection, batch download
+- File management: Search, bulk selection, batch download, resume support
 - Classic interface: Simplified alternative with same functionality
 - Responsive design supporting mobile devices
 
