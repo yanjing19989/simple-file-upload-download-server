@@ -20,7 +20,39 @@ window.FSFiles = (function(){
         xhr.send(form);
     }
     function downloadSelected() {
-        const key = FSAuth.getKey(); if (!key) return; const checks = [...fileTableBody.querySelectorAll('.row-check:checked')]; if (!checks.length) { showToast && showToast('请至少选择一个文件', 'warn'); return; } checks.forEach(cb => { const name = cb.closest('tr').dataset.name; window.open('/download?file=' + encodeURIComponent(name) + '&key=' + encodeURIComponent(key), '_blank'); }); showToast && showToast('开始下载 ' + checks.length + ' 个文件', 'ok'); }
+        const key = FSAuth.getKey(); if (!key) return; 
+        const checks = [...fileTableBody.querySelectorAll('.row-check:checked')]; 
+        if (!checks.length) { 
+            showToast && showToast('请至少选择一个文件', 'warn'); 
+            return; 
+        }
+        let downloadIndex = 0;
+        const downloadNext = () => {
+            if (downloadIndex >= checks.length) return;
+            
+            const cb = checks[downloadIndex];
+            const name = cb.closest('tr').dataset.name;
+            
+            // 创建一个隐藏的链接来触发下载，避免弹窗阻止
+            const link = document.createElement('a');
+            link.href = '/download?file=' + encodeURIComponent(name) + '&key=' + encodeURIComponent(key);
+            link.download = name;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            downloadIndex++;
+            
+            if (downloadIndex < checks.length) {
+                setTimeout(downloadNext, 300);
+            }
+        };
+        
+        // 开始下载
+        downloadNext();
+        showToast && showToast('开始下载 ' + checks.length + ' 个文件', 'ok'); 
+    }
     // 对外接口
     return { refreshList, upload, downloadSelected, get fileCache() { return fileCache; } };
 })();
