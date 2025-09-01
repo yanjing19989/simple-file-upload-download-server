@@ -3,6 +3,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import cgi
 import argparse
 import random
+import urllib.parse
 # 加密模式开关与一次性密钥
 ENCRYPTED = False
 SECRET_KEY = ''
@@ -105,7 +106,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                         
                         self.send_response(206)  # Partial Content
                         self.send_header('Content-Type', 'application/octet-stream')
-                        self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+                        self.send_header('Content-Disposition', f'attachment; filename*=UTF-8\'\'{urllib.parse.quote(filename.encode("utf-8"))}')
                         self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
                         self.send_header('Content-Length', str(content_length))
                         self.send_header('Accept-Ranges', 'bytes')
@@ -128,7 +129,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                     # 正常下载（无 Range 请求）
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/octet-stream')
-                    self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+                    self.send_header('Content-Disposition', f'attachment; filename*=UTF-8\'\'{urllib.parse.quote(filename.encode("utf-8"))}')
                     self.send_header('Content-Length', str(file_size))
                     self.send_header('Accept-Ranges', 'bytes')
                     self.end_headers()
@@ -179,7 +180,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                 file_size = os.path.getsize(filename)
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/octet-stream')
-                self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+                self.send_header('Content-Disposition', f'attachment; filename*=UTF-8\'\'{urllib.parse.quote(filename.encode("utf-8"))}')
                 self.send_header('Content-Length', str(file_size))
                 self.send_header('Accept-Ranges', 'bytes')  # 重要：告诉客户端支持断点续传
                 self.end_headers()
