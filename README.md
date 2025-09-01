@@ -19,7 +19,7 @@
 
 ### 功能
 - 上传多个文件（multipart/form-data）
-- 下载文件（浏览器或命令行）
+- 下载文件（浏览器或命令行），支持断点续传
 - 文件列表（名称 + 大小）
 - 进度条与上传速度显示
 - 增强型现代界面（卡片式布局、毛玻璃效果）
@@ -70,7 +70,7 @@
 - 列表：自动加载文件列表，支持搜索过滤、全选/反选、批量下载
 - 主题：点击右上角主题按钮切换浅色/深色/自动模式
 - 主题色：点击调色板按钮（🎨）选择预设颜色或重置为默认主题
-- 下载：选中文件后点击"下载所选"，支持批量下载
+- 下载：选中文件后点击"下载所选"，支持批量下载和断点续传
 
 **经典界面（`-c` 启用）：**
 - 上传：选择文件后点击"上传"，如启用加密模式会弹窗输入密钥
@@ -84,6 +84,7 @@
 - `GET /` 返回前端页面
 - `GET /list` 列出当前目录文件（JSON），可选 `X-Secret-Key`
 - `GET /download?file=<name>` 下载指定文件，可选 `X-Secret-Key`
+- `HEAD /download?file=<name>` 获取文件信息，可选 `X-Secret-Key`
 - `POST /upload` 上传文件（multipart/form-data，字段名 `file`），可选 `X-Secret-Key`
 
 ### 加密模式说明
@@ -146,7 +147,7 @@ A tiny file upload/download server built on Python's built-in `http.server`. Sin
 
 ### Features
 - Multi-file upload (multipart/form-data)
-- File download (browser or CLI)
+- File download (browser or CLI), supports resuming
 - File listing (name + size)
 - Upload progress and speed display
 - Enhanced modern interface (card layout with glassmorphism effects)
@@ -197,7 +198,7 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 - List: Auto-loads file list with search filtering, select all/invert selection, and bulk download support
 - Theme: Click theme button in top-right corner to switch between light/dark/auto modes
 - Color Theme: Click color palette button (🎨) to select preset colors or reset to default theme
-- Download: Select files and click "Download Selected" for bulk downloads
+- Download: Select files and click "Download Selected" for bulk downloads, supports resuming
 
 **Classic Interface (`-c` enabled):**
 - Upload: Select files, click Upload. If encrypted mode is on, the page prompts for the key
@@ -211,6 +212,7 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 - `GET /` Returns the built-in HTML frontend.
 - `GET /list` List files in current dir (JSON), optional `X-Secret-Key`
 - `GET /download?file=<name>` Download a specific file, optional `X-Secret-Key`
+- `HEAD /download?file=<name>` Get file info, optional `X-Secret-Key`
 - `POST /upload` Upload one or more files in multipart/form-data under the `file` field, optional `X-Secret-Key`
 
 ### Encrypted Mode Notes
