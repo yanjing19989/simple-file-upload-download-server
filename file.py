@@ -84,12 +84,61 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                 if not safe_path.startswith(base_dir + os.sep) or not os.path.isfile(safe_path):
                     self.send_error(403, 'Access to the file is prohibited')
                     return
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/octet-stream')
-                self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
-                self.end_headers()
-                with open(filename, 'rb') as fp:
-                    self.wfile.write(fp.read())
+                
+                # 获取文件大小
+                file_size = os.path.getsize(filename)
+                
+                # 处理 Range 请求（断点续传支持）
+                range_header = self.headers.get('Range')
+                if range_header:
+                    # 解析 Range 头，格式: bytes=start-end
+                    try:
+                        range_match = range_header.replace('bytes=', '').split('-')
+                        start = int(range_match[0]) if range_match[0] else 0
+                        end = int(range_match[1]) if range_match[1] else file_size - 1
+                        
+                        if start >= file_size or end >= file_size or start > end:
+                            self.send_error(416, 'Range Not Satisfiable')
+                            return
+                        
+                        content_length = end - start + 1
+                        
+                        self.send_response(206)  # Partial Content
+                        self.send_header('Content-Type', 'application/octet-stream')
+                        self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+                        self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
+                        self.send_header('Content-Length', str(content_length))
+                        self.send_header('Accept-Ranges', 'bytes')
+                        self.end_headers()
+                        
+                        with open(filename, 'rb') as fp:
+                            fp.seek(start)
+                            remaining = content_length
+                            while remaining > 0:
+                                chunk_size = min(8192, remaining)
+                                chunk = fp.read(chunk_size)
+                                if not chunk:
+                                    break
+                                self.wfile.write(chunk)
+                                remaining -= len(chunk)
+                    except (ValueError, IndexError):
+                        self.send_error(400, 'Invalid Range header')
+                        return
+                else:
+                    # 正常下载（无 Range 请求）
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/octet-stream')
+                    self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+                    self.send_header('Content-Length', str(file_size))
+                    self.send_header('Accept-Ranges', 'bytes')
+                    self.end_headers()
+                    
+                    with open(filename, 'rb') as fp:
+                        while True:
+                            chunk = fp.read(8192)
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
             else:
                 self.send_error(404, 'File not found')
         elif self.path == '/list':
@@ -109,6 +158,33 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({'files': file_infos}).encode('utf-8'))
         else:
             self.send_error(404)
+
+    def do_HEAD(self):
+        # 支持 HEAD 请求，主要用于文件下载预检
+        if self.path.startswith('/download'):
+            if not self._check_key():
+                self.send_error(401, 'Unauthorized, invalid key')
+                return
+            import urllib.parse
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            filename = params.get('file', [''])[0]
+            if filename and os.path.isfile(filename):
+                safe_path = os.path.abspath(filename)
+                base_dir = os.path.abspath('.')
+                if not safe_path.startswith(base_dir + os.sep) or not os.path.isfile(safe_path):
+                    self.send_error(403, 'Access to the file is prohibited')
+                    return
+                # 获取文件大小
+                file_size = os.path.getsize(filename)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/octet-stream')
+                self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+                self.send_header('Content-Length', str(file_size))
+                self.send_header('Accept-Ranges', 'bytes')  # 重要：告诉客户端支持断点续传
+                self.end_headers()
+            else:
+                self.send_error(404, 'File not found')
 
     def do_POST(self):
         if self.path == '/upload':
