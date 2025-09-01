@@ -216,7 +216,21 @@ def run(server_class=HTTPServer, handler_class=UploadHTTPRequestHandler, port=80
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
     import socket
-    print(f"Serving on {socket.gethostbyname(socket.gethostname())}:{port}")
+    host_ip = socket.gethostbyname(socket.gethostname())
+    url = f"http://{host_ip}:{port}/"
+    print(f"Serving on {host_ip}:{port}")
+
+    try:
+        import qrcode
+        # qrcode 支持在终端打印 ASCII（利用 terminal module）
+        qr = qrcode.QRCode()
+        qr.add_data(url)
+        qr.make()
+        qr.print_ascii(invert=True)
+    except Exception:
+        # 如果 qrcode 无法直接打印，生成并打印基本字符串
+        print(url)
+
     httpd.serve_forever()
 
 if __name__ == '__main__':
