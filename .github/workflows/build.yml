@@ -122,27 +122,5 @@ jobs:
         files: |
           SFS-linux/*
           SFS-windows/*
-        body: |
-          ## Downloads
-          
-          **Directory builds** (includes all files in a folder):
-          - Linux: `SFS-linux.tar.gz`
-          - Windows: `SFS-windows.zip`
-          
-          ## Usage
-          
-          Extract and run:
-          ```bash
-          # Linux directory build
-          tar -xzf SFS-linux.tar.gz
-          cd SFS
-          ./SFS -p 8000
-
-          # Windows - extract and run .exe files from the respective folders
-          ```
-          
-          Visit `http://localhost:8000` in your browser after starting the server.
-          
-          **Note**: All builds now include the `static/` folder and `classic.html` file in the same directory as the executable, ensuring proper web interface functionality.
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
