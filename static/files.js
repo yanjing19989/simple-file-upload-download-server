@@ -13,8 +13,30 @@ window.FSFiles = (function(){
         const files = fileInput.files; if (!files || !files.length) { showToast && showToast('请选择文件', 'warn'); return; }
         const form = new FormData(); for (let i = 0; i < files.length; i++) form.append('file', files[i]);
         const xhr = new XMLHttpRequest(); xhr.open('POST', '/upload'); const key = FSAuth.getKey(); if (!key) return; xhr.setRequestHeader('X-Secret-Key', key);
-        let lastLoaded = 0, lastTime = Date.now(); progressWrap && (progressWrap.style.display = 'block'); statusSpan && (statusSpan.textContent = '准备上传');
-        xhr.upload.onprogress = function (e) { const now = Date.now(); if (e.lengthComputable && (now - lastTime >= 180 || e.loaded === e.total)) { const percent = (e.loaded / e.total) * 100; progressBar && (progressBar.value = percent); const dt = (now - lastTime) / 1000; const db = e.loaded - lastLoaded; const speed = db / dt; speedLine && (speedLine.textContent = (speed / 1024).toFixed(2) + ' KB/s'); const remain = e.total - e.loaded; etaLine && (etaLine.textContent = speed ? '剩余 ' + (remain / speed).toFixed(1) + 's' : ''); statusSpan && (statusSpan.textContent = percent.toFixed(1) + '%'); lastLoaded = e.loaded; lastTime = now; } };
+        // 记录开始时间用于小文件使用全程平均速度，避免瞬时速度过高
+        const uploadStart = Date.now();
+        let lastLoaded = 0, lastTime = uploadStart; progressWrap && (progressWrap.style.display = 'block'); statusSpan && (statusSpan.textContent = '准备上传');
+        xhr.upload.onprogress = function (e) {
+            const now = Date.now();
+            if (e.lengthComputable && (now - lastTime >= 500 || e.loaded === e.total)) {
+                const percent = (e.loaded / e.total) * 100;
+                progressBar && (progressBar.value = percent);
+                const elapsedTotal = Math.max((now - uploadStart) / 1000, 0.1);
+                let speed;
+                if (e.loaded === e.total) {
+                    speed = e.total / elapsedTotal;
+                } else {
+                    const dt = (now - lastTime) / 1000;
+                    const db = e.loaded - lastLoaded;
+                    speed = db / dt;
+                }
+                speedLine && (speedLine.textContent = FSUtils.formatSize(speed) + '/s');
+                const remain = e.total - e.loaded;
+                etaLine && (etaLine.textContent = speed ? '剩余 ' + (remain / speed).toFixed(1) + 's' : '');
+                statusSpan && (statusSpan.textContent = percent.toFixed(1) + '%');
+                lastLoaded = e.loaded; lastTime = now;
+            }
+        };
         xhr.onload = function () { if (xhr.status === 200) { showToast && showToast('上传成功', 'ok'); statusSpan && (statusSpan.textContent = '完成'); refreshList(); } else if (xhr.status === 401) { showToast && showToast('密钥错误', 'err'); FSAuth.resetKey(); } else { showToast && showToast('上传失败: ' + xhr.status, 'err'); statusSpan && (statusSpan.textContent = '失败'); } };
         xhr.onerror = function () { showToast && showToast('网络错误', 'err'); };
         xhr.send(form);
