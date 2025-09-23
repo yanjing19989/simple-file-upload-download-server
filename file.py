@@ -218,7 +218,7 @@ def run(server_class=HTTPServer, handler_class=UploadHTTPRequestHandler, port=80
     import socket
     host_ip = socket.gethostbyname(socket.gethostname())
     url = f"http://{host_ip}:{port}/"
-    print(f"Serving on {host_ip}:{port}")
+    print(f"Serving on {url}")
 
     try:
         import qrcode
