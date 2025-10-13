@@ -30,19 +30,24 @@ Always reference these instructions first and fallback to search or bash command
 
 ### Basic Build (CI Default Method)
 ```bash
-# Install PyInstaller (takes ~10-15 seconds)
-pip install pyinstaller
+# Install PyInstaller and qrcode (takes ~10-15 seconds)
+pip install pyinstaller qrcode
 
-# Basic directory build (takes 4-5 seconds)
-pyinstaller --name SFS file.py
-
-# Copy static assets to executable directory (CI method)
-cp -r static dist/SFS/
-cp classic.html dist/SFS/
+# Directory build with static files embedded (takes 4-5 seconds)
+pyinstaller -D file.py -n SFS --add-data static:static
 
 # Test built executable
 cd dist/SFS
 ./SFS --help
+```
+
+### Single-File Build (Alternative)
+```bash
+# Build single executable (portable but slower startup)
+pyinstaller -F file.py -n SFS-onefile --add-data static:static
+
+# Test single-file build
+./dist/SFS-onefile --help
 ```
 
 ### Build Validation
@@ -189,8 +194,8 @@ kill $SERVER_PID
 
 - `GET /` - Returns web frontend (index.html or classic.html based on mode)
 - `GET /list` - JSON list of files with names and sizes
-- `GET /download?file=<filename>` - Download specific file
-- `HEAD /download?file=<filename>` - Get file info
+- `GET /download?file=<filename>` - Download specific file, supports HTTP range requests for resumable downloads
+- `HEAD /download?file=<filename>` - Get file metadata (size, content-type, range support) without downloading
 - `POST /upload` - Upload files using multipart/form-data with field name "file"
 - `GET /static/*` - Static assets (CSS, JS) for modern interface
 
@@ -201,16 +206,16 @@ kill $SERVER_PID
 file.py                 # Main server entry point
 README.md              # Documentation (Chinese and English)
 LICENSE                # MIT license
-classic.html           # Simple frontend alternative
 run_server.bat         # Windows batch script (port 80)
 run_server.sh          # Linux/macOS script (port 8000)
 run_server_classic.bat # Windows classic mode script
-static/                # Modern frontend assets
+static/                # Modern frontend assets and classic.html
 ```
 
 ### Static Directory
 ```
 static/index.html      # Modern web interface
+static/classic.html    # Classic simple interface
 static/style.css       # Styles with dark mode and theme color support
 static/auth.js         # Authentication and key handling
 static/files.js        # File operations (upload, download, listing)
@@ -279,7 +284,8 @@ rm test.txt
   - Shows: `DeprecationWarning: 'cgi' is deprecated and slated for removal in Python 3.13`
 - **Module not found**: Ensure Python 3.8+ is installed and accessible as `python3`
 - **Browser access issues**: Try `http://localhost:PORT/` with correct port number
-- **HEAD requests not supported**: Server returns `501 Unsupported method ('HEAD')` for HEAD requests
+- **HEAD requests**: Server now supports HEAD requests for file metadata and resumable download checks
+- **QR Code not displaying**: Optional feature requiring `qrcode` module. If not installed, only URL is printed
 
 ### Encrypted Mode Troubleshooting
 - In encrypted mode, server displays: `一次性密钥: XXXX` where XXXX is a 4-digit number
@@ -288,10 +294,11 @@ rm test.txt
 - Classic mode with encryption prompts for key in browser interface
 
 ### Build Troubleshooting  
-- PyInstaller requires: `pip install pyinstaller` (takes ~10-15 seconds)
+- PyInstaller requires: `pip install pyinstaller qrcode` (takes ~10-15 seconds)
 - Build failures: Ensure you're in repository root directory
-- Missing static files: Copy `static/` and `classic.html` to `dist/SFS/` directory manually
+- Missing static files: Use `--add-data static:static` flag to embed static assets during build
 - Executable won't start: Check that static assets are accessible from executable location
+- QR code issues: `qrcode` module is optional; server will fallback to text-only URL display
 
 ## Development Notes
 
@@ -299,16 +306,21 @@ rm test.txt
 - Frontend uses modular vanilla JavaScript with progress tracking, theme management, and color customization
 - Encryption mode generates random 4-digit keys per server start
 - Static files served directly from filesystem
-- No external dependencies - uses only Python standard library
+- No external dependencies - uses only Python standard library (qrcode is optional)
 - Cross-platform compatibility (Windows, macOS, Linux)
+- Server startup prints full URL and optional QR code for easy mobile access
 
 ### Key Implementation Details
-- Server doesn't support HEAD requests (returns 501)
+- Server supports HEAD requests for file metadata and resumable download checks
+- HTTP range requests enabled for resumable downloads with proper Accept-Ranges headers
 - Supports multi-file uploads via multipart/form-data
 - Files saved to current working directory where server runs
 - Path traversal protection implemented for security
 - MIME type detection for CSS, JS, HTML files
 - Template replacement: `{encrypted_status}` → `true`/`false` in HTML files
+- Upload speed calculation uses average speed for small files to avoid unrealistic readings
+- Sequential multi-file downloads with delays to prevent browser popup blocking
+- QR code generation optional, gracefully falls back to text URL if module unavailable
 
 ### Frontend Architecture (Post-PR #18)
 - **Modular JavaScript**: Frontend split into focused modules for maintainability
@@ -322,26 +334,28 @@ rm test.txt
 - **Global Namespacing**: Modules expose APIs via `window.FSAuth`, `window.FSFiles`, `window.FSUtils`
 
 ### Frontend Features
-- Modern interface: Drag-and-drop, progress tracking, speed/ETA display
+- Modern interface: Drag-and-drop, progress tracking, speed/ETA display with accurate calculations
 - Theme switching: Light/dark/auto modes with localStorage persistence
 - Theme customization: Customizable color palette with preset accent colors
-- File management: Search, bulk selection, batch download, resume support
+- File management: Search, bulk selection, batch download with sequential triggers
 - Classic interface: Simplified alternative with same functionality
 - Responsive design supporting mobile devices
+- Upload speed display optimized for small files (average speed) and large files (instantaneous speed)
+- Multi-file download with anti-popup-blocker delays
 
 ## File Locations Reference
 
-- **Main server**: `file.py` (158 lines, ~7KB)
+- **Main server**: `file.py` (253 lines, ~8KB)
 - **Modern UI**: `static/index.html`, `static/style.css`, and modular JavaScript:
   - `static/auth.js` - Authentication and key handling
   - `static/files.js` - File operations (upload, download, listing)
   - `static/theme.js` - Theme management and color palette
   - `static/ui.js` - UI helpers and interactions  
   - `static/utils.js` - Utility functions
-- **Simple UI**: `classic.html` (single file, ~7KB)
+- **Simple UI**: `static/classic.html` (single file, ~7KB)
 - **Documentation**: `README.md` (bilingual Chinese/English)
 - **Launcher scripts**: `run_server.sh`, `run_server.bat`, `run_server_classic.bat`
-- **CI Build**: `.github/workflows/build.yml` (automated PyInstaller builds)
+- **CI Build**: `.github/workflows/build.yml` (automated PyInstaller builds with single-file option)
 
 ## Comprehensive User Scenarios
 
@@ -385,9 +399,8 @@ kill $SERVER_PID
 ### Scenario 3: Build and Distribution Testing
 ```bash
 # Full build cycle (takes ~20 seconds total)
-pip install pyinstaller                    # 10-15 seconds
-pyinstaller --name SFS file.py            # 4-5 seconds  
-cp -r static classic.html dist/SFS/       # <1 second
+pip install pyinstaller qrcode                    # 10-15 seconds
+pyinstaller -D file.py -n SFS --add-data static:static  # 4-5 seconds  
 
 # Test built executable
 cd dist/SFS
@@ -397,6 +410,11 @@ BUILD_PID=$!
 sleep 2
 curl -s http://localhost:8001/list        # Test functionality
 kill $BUILD_PID
+
+# Test single-file build
+cd ../..
+pyinstaller -F file.py -n SFS-onefile --add-data static:static
+./dist/SFS-onefile -p 8002 --help
 ```
 
 Always test upload, download, and listing functionality after making changes to ensure the core file server capabilities remain intact.

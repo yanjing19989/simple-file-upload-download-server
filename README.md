@@ -18,19 +18,20 @@
 - 平台：Windows / macOS / Linux
 
 ### 功能
-- 上传多个文件（multipart/form-data）
-- 下载文件（浏览器或命令行），支持断点续传
-- 文件列表（名称 + 大小）
-- 进度条与上传速度显示
-- 增强型现代界面（卡片式布局、毛玻璃效果）
+- 上传多个文件（multipart/form-data），支持实时速度与 ETA 显示
+- 下载文件（浏览器或命令行），支持断点续传与 HTTP Range 请求
+- 文件列表（名称 + 大小），支持 HEAD 请求获取文件元数据
+- 进度条与智能上传速度显示（小文件使用平均速度）
+- 增强型现代界面（卡片式布局、优化的视觉效果）
 - 拖拽上传支持
 - 手动主题切换（浅色/深色/自动）
 - 主题色彩定制（7种预设颜色和重置选项）
-- 文件搜索与批量操作
+- 文件搜索与批量操作（防弹窗拦截的顺序下载）
 - 实时速度与预计完成时间显示
 - 响应式设计，支持移动设备
 - 可选加密模式：一次性 4 位密钥（请求头 `X-Secret-Key`）
 - 经典界面模式（通过 `-c` 参数启用）
+- 终端显示服务器 URL 和二维码（可选，需要 qrcode 模块）
 
 ### 快速开始
 1. 安装 Python 3.8+ 并确保命令行可用 `python`。
@@ -83,8 +84,8 @@
 ### 接口说明
 - `GET /` 返回前端页面
 - `GET /list` 列出当前目录文件（JSON），可选 `X-Secret-Key`
-- `GET /download?file=<name>` 下载指定文件，可选 `X-Secret-Key`
-- `HEAD /download?file=<name>` 获取文件信息，可选 `X-Secret-Key`
+- `GET /download?file=<name>` 下载指定文件，支持 HTTP Range 请求断点续传，可选 `X-Secret-Key`
+- `HEAD /download?file=<name>` 获取文件元数据（大小、类型、Range 支持），不下载文件内容，可选 `X-Secret-Key`
 - `POST /upload` 上传文件（multipart/form-data，字段名 `file`），可选 `X-Secret-Key`
 
 ### 加密模式说明
@@ -101,38 +102,40 @@
 
 ### 预编译可执行文件
 
-预编译的可执行文件可从 [发布页面](https://github.com/yanjing19989/simple-file-upload-download-server/releases) 下载。CI 目前创建以 `SFS` 为名的目录构建（分别针对 Linux/Windows），构建产物已调整如下：
+预编译的可执行文件可从 [发布页面](https://github.com/yanjing19989/simple-file-upload-download-server/releases) 下载。CI 创建两种构建方式：
 
-**目录构建**：
+**目录构建**（推荐，启动更快）：
 - Linux: `SFS-linux.tar.gz`
 - Windows: `SFS-windows.zip`
 
-解压后请在解压目录中运行可执行文件。静态资源 `static/` 以及页面 `classic.html` 将被复制到与可执行文件相同的目录下（而非打包到 `_internal` 或嵌入到可执行文件内部），因此 web 界面可以直接访问这些文件。
+**单文件构建**（便携，但启动稍慢）：
+- Linux: `SFS-onefile`（包含在 tar.gz 中）
+- Windows: `SFS-onefile.exe`（包含在 zip 中）
 
-> 注意：CI 的目录构建会在 dist 中生成名为 `SFS` 的文件夹，里面包含可执行文件、`static/` 文件夹和 `classic.html`。
+解压后运行可执行文件。静态资源（`static/`）已通过 `--add-data` 嵌入到可执行文件中。
+
+> 注意：目录构建会在 `dist` 中生成名为 `SFS` 的文件夹，包含可执行文件和 `_internal` 目录（包含依赖和静态资源）。
 
 ---
 
 ### 从源码构建
 
-项目包含 GitHub Actions CI/CD，使用 PyInstaller 构建可执行文件。CI 的构建流程不再通过把静态资源嵌入到可执行文件内部来分发资源，而是构建完成后将 `static/` 与 `classic.html` 复制到可执行文件目录。要在本地模拟相同结果，可按以下步骤操作：
+项目包含 GitHub Actions CI/CD，使用 PyInstaller 构建可执行文件。CI 通过 `--add-data` 标志将静态资源嵌入到构建中。要在本地构建：
 
-1. 安装 PyInstaller：
+1. 安装 PyInstaller 和 qrcode（可选）：
    ```powershell
-   pip install pyinstaller
+   pip install pyinstaller qrcode
    ```
-2. 使用 PyInstaller 生成目录构建：
+2. 目录构建（推荐）：
    ```powershell
-   pyinstaller --name SFS file.py
+   pyinstaller -D file.py -n SFS --add-data static:static
    ```
-3. 将静态资源复制到生成的可执行文件所在目录（示例为 Windows 的 dist）：
+   或单文件构建：
    ```powershell
-   # 假设在仓库根目录执行
-   xcopy /E /I static dist\SFS\static
-   copy classic.html dist\SFS\classic.html
+   pyinstaller -F file.py -n SFS-onefile --add-data static:static
    ```
 
-但请注意：CI 当前策略是把资源放在可执行文件同级目录，以保证运行时能以预期方式从文件系统读取前端文件。
+> 提示：`--add-data` 使用 `:` 作为分隔符（在 Windows 上使用 `;`）。格式：`源路径:目标路径`
 
 ---
 
@@ -146,19 +149,20 @@ A tiny file upload/download server built on Python's built-in `http.server`. Sin
 - Platforms: Windows / macOS / Linux
 
 ### Features
-- Multi-file upload (multipart/form-data)
-- File download (browser or CLI), supports resuming
-- File listing (name + size)
-- Upload progress and speed display
-- Enhanced modern interface (card layout with glassmorphism effects)
+- Multi-file upload (multipart/form-data) with real-time speed and ETA display
+- File download (browser or CLI), supports resuming with HTTP Range requests
+- File listing (name + size), supports HEAD requests for file metadata
+- Upload progress with intelligent speed display (average speed for small files)
+- Enhanced modern interface (card layout with optimized visual effects)
 - Drag and drop file upload support
 - Manual theme switching (light/dark/auto)
 - Theme color customization (7 preset colors and reset option)
-- File search and bulk operations
+- File search and bulk operations (sequential downloads to prevent popup blocking)
 - Real-time speed and ETA display
 - Responsive design for mobile devices
 - Optional encrypted mode: one-time 4-digit key (via `X-Secret-Key` header)
 - Classic interface mode (enabled via `-c` flag)
+- Terminal displays server URL and QR code (optional, requires qrcode module)
 
 ### Quick Start
 1. Install Python 3.8+ and ensure `python` is available in your shell.
@@ -209,10 +213,10 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 > All regular files in the current working directory appear in the list.
 
 ### API
-- `GET /` Returns the built-in HTML frontend.
+- `GET /` Returns the built-in HTML frontend
 - `GET /list` List files in current dir (JSON), optional `X-Secret-Key`
-- `GET /download?file=<name>` Download a specific file, optional `X-Secret-Key`
-- `HEAD /download?file=<name>` Get file info, optional `X-Secret-Key`
+- `GET /download?file=<name>` Download a specific file with HTTP Range request support for resumable downloads, optional `X-Secret-Key`
+- `HEAD /download?file=<name>` Get file metadata (size, content-type, range support) without downloading content, optional `X-Secret-Key`
 - `POST /upload` Upload one or more files in multipart/form-data under the `file` field, optional `X-Secret-Key`
 
 ### Encrypted Mode Notes
@@ -233,37 +237,39 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 
 ### Pre-built Binaries
 
-Pre-built executables for Windows and Linux are available from the project's [Releases page](https://github.com/yanjing19989/simple-file-upload-download-server/releases). The CI currently creates directory builds named `SFS` (for Linux/Windows). The artifacts have been adjusted as follows:
+Pre-built executables for Windows and Linux are available from the project's [Releases page](https://github.com/yanjing19989/simple-file-upload-download-server/releases). The CI creates two types of builds:
 
-**Directory builds**:
+**Directory builds** (recommended, faster startup):
 - Linux: `SFS-linux.tar.gz`
 - Windows: `SFS-windows.zip`
 
-After extraction, run the executable from the extracted folder. Important: the static assets (`static/`) and the `classic.html` page are copied into the same directory as the executable (they are NOT placed inside `_internal` or embedded inside the binary). This ensures the web UI can be loaded directly from the filesystem.
+**Single-file builds** (portable, slightly slower startup):
+- Linux: `SFS-onefile` (included in tar.gz)
+- Windows: `SFS-onefile.exe` (included in zip)
 
-> Note: CI directory builds generate a `SFS` folder under `dist` that contains the executable, the `static/` folder and `classic.html`.
+After extraction, run the executable. Static assets (`static/`) are embedded in the executables using `--add-data` flag.
+
+> Note: Directory builds generate a `SFS` folder under `dist` containing the executable and `_internal` directory (with dependencies and static assets).
 
 ---
 
 ### Building from Source
 
-The project includes a GitHub Actions CI that builds binaries using PyInstaller. The CI build flow places static assets next to the executable (it does not rely on embedding them inside the binary). To reproduce the same result locally, follow these steps:
+The project includes a GitHub Actions CI that builds binaries using PyInstaller. The CI embeds static assets using the `--add-data` flag. To build locally:
 
-1. Install PyInstaller:
+1. Install PyInstaller and qrcode (optional):
    ```powershell
-   pip install pyinstaller
+   pip install pyinstaller qrcode
    ```
-2. Create a directory build locally:
+2. Directory build (recommended):
    ```powershell
-   pyinstaller --name SFS file.py
+   pyinstaller -D file.py -n SFS --add-data static:static
    ```
-3. Copy the static assets to the produced executable directory (Windows example):
+   Or single-file build:
    ```powershell
-   # Run from repository root
-   xcopy /E /I static dist\SFS\static
-   copy classic.html dist\SFS\classic.html
+   pyinstaller -F file.py -n SFS-onefile --add-data static:static
    ```
 
-Keep in mind that the repository's CI uses the strategy of shipping `static/` and `classic.html` alongside the executable to ensure predictable runtime behavior when the server reads frontend files from the filesystem.
+> Tip: `--add-data` uses `:` as separator (use `;` on Windows). Format: `source_path:destination_path`
 
 
