@@ -2,12 +2,19 @@ import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import cgi
 import argparse
+from pathlib import Path
 import random
+import sys
 import urllib.parse
 # 加密模式开关与一次性密钥
 ENCRYPTED = False
 SECRET_KEY = ''
 CLASSIC_MODE = False
+
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    basepath = Path(sys._MEIPASS)
+else:
+    basepath = Path(__file__).resolve().parent
 
 class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     def _check_key(self):
@@ -27,9 +34,9 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
             try:
                 if CLASSIC_MODE:
                     # 如果是经典模式，返回 classic.html
-                    index_file = 'classic.html'
+                    index_file = os.path.join(basepath, 'static', 'classic.html')
                 else:
-                    index_file = os.path.join('static', 'index.html')
+                    index_file = os.path.join(basepath, 'static', 'index.html')
                 with open(index_file, 'rb') as fh:
                     data = fh.read()
                 # 替换一次性密钥
@@ -44,10 +51,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
         elif self.path.startswith('/static/'):
             # 简单静态文件服务
             safe_path = os.path.normpath(self.path.lstrip('/'))
-            full_path = os.path.join(os.getcwd(), safe_path)
-            if not full_path.startswith(os.path.join(os.getcwd(), 'static')):
-                self.send_error(403, 'Forbidden')
-                return
+            full_path = os.path.join(basepath, safe_path)
             if not os.path.isfile(full_path):
                 self.send_error(404, 'Not found')
                 return

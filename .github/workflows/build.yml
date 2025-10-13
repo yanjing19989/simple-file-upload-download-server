@@ -46,7 +46,7 @@ jobs:
         print('Application imports successfully')
         if os.path.exists('static/index.html'):
             print('Static files found')
-        if os.path.exists('classic.html'):
+        if os.path.exists('static/classic.html'):
             print('Classic HTML found')
         # Test that we can create the server class
         handler = UploadHTTPRequestHandler
@@ -55,9 +55,9 @@ jobs:
         rm test.txt
       shell: bash
 
-    - name: Build with PyInstaller
+    - name: Build with PyInstaller Directory
       run: |
-        pyinstaller --clean -D file.py -n SFS
+        pyinstaller -D file.py -n SFS --add-data static:static
         echo "Verifying build outputs..."
         ls -la dist/
         if [ "${{ matrix.platform }}" = "windows" ]; then
@@ -68,16 +68,17 @@ jobs:
         echo "Build verification completed successfully"
       shell: bash
 
-    - name: Copy static files to exe directory
+    - name: Build with PyInstaller One File
       run: |
-        echo "Copying static files and classic.html to exe directory..."
-        # Copy static folder and classic.html to the directory build location
-        cp -r static dist/SFS/
-        cp classic.html dist/SFS/
-        
-        echo "Static files copied successfully"
-        echo "Directory structure after copying:"
-        ls -la dist/SFS/
+        pyinstaller -F file.py -n SFS-onefile --add-data static:static
+        echo "Verifying one-file build outputs..."
+        ls -la dist/
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          test -f "dist/SFS-onefile.exe" || exit 1
+        else
+          test -f "dist/SFS-onefile" || exit 1
+        fi
+        echo "One-file build verification completed successfully"
       shell: bash
 
     - name: Create directory archive
@@ -90,7 +91,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: SFS-${{ matrix.platform }}
-        path: dist/SFS-${{ matrix.platform }}.${{ matrix.archive_ext }}
+        path: |
+          dist/SFS-${{ matrix.platform }}.${{ matrix.archive_ext }}
+          dist/SFS-onefile${{ matrix.platform == 'windows' && '.exe' || '' }}
 
     - name: Test built executables
       run: |
@@ -101,10 +104,12 @@ jobs:
         else
           ./SFS/SFS --help || echo "Directory build help test completed"
         fi
-        
-        echo "Verifying static files are present..."
-        test -d "SFS/static" || echo "Warning: static directory not found in directory build"
-        test -f "SFS/classic.html" || echo "Warning: classic.html not found in directory build"
+        echo "Testing one-file build..."
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          ./SFS-onefile.exe --help || echo "One-file build help test completed"
+        else
+          ./SFS-onefile --help || echo "One-file build help test completed"
+        fi
       shell: bash
 
   release:
