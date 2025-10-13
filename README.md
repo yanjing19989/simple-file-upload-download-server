@@ -84,8 +84,8 @@
 ### 接口说明
 - `GET /` 返回前端页面
 - `GET /list` 列出当前目录文件（JSON），可选 `X-Secret-Key`
-- `GET /download?file=<name>` 下载指定文件，可选 `X-Secret-Key`
-- `HEAD /download?file=<name>` 获取文件信息，可选 `X-Secret-Key`
+- `GET /download?file=<name>` 下载指定文件，支持 HTTP Range 请求断点续传，可选 `X-Secret-Key`
+- `HEAD /download?file=<name>` 获取文件元数据（大小、类型、Range 支持），不下载文件内容，可选 `X-Secret-Key`
 - `POST /upload` 上传文件（multipart/form-data，字段名 `file`），可选 `X-Secret-Key`
 
 ### 加密模式说明
@@ -213,10 +213,10 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 > All regular files in the current working directory appear in the list.
 
 ### API
-- `GET /` Returns the built-in HTML frontend.
+- `GET /` Returns the built-in HTML frontend
 - `GET /list` List files in current dir (JSON), optional `X-Secret-Key`
-- `GET /download?file=<name>` Download a specific file, optional `X-Secret-Key`
-- `HEAD /download?file=<name>` Get file info, optional `X-Secret-Key`
+- `GET /download?file=<name>` Download a specific file with HTTP Range request support for resumable downloads, optional `X-Secret-Key`
+- `HEAD /download?file=<name>` Get file metadata (size, content-type, range support) without downloading content, optional `X-Secret-Key`
 - `POST /upload` Upload one or more files in multipart/form-data under the `file` field, optional `X-Secret-Key`
 
 ### Encrypted Mode Notes
