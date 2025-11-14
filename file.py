@@ -28,6 +28,22 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
             key = params.get('key', [''])[0]
         return key == SECRET_KEY
 
+    def _stream_file(self, fp, start, end):
+        try:
+            fp.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                chunk_size = min(8192, remaining)
+                chunk = fp.read(chunk_size)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            self.log_error('Client closed connection while streaming file.')
+            return False
+        return True
+
     def do_GET(self):
         if self.path == '/':
             # 返回静态 index.html
@@ -117,15 +133,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                         self.end_headers()
                         
                         with open(filename, 'rb') as fp:
-                            fp.seek(start)
-                            remaining = content_length
-                            while remaining > 0:
-                                chunk_size = min(8192, remaining)
-                                chunk = fp.read(chunk_size)
-                                if not chunk:
-                                    break
-                                self.wfile.write(chunk)
-                                remaining -= len(chunk)
+                            self._stream_file(fp, start, end)
                     except (ValueError, IndexError):
                         self.send_error(400, 'Invalid Range header')
                         return
@@ -139,11 +147,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                     self.end_headers()
                     
                     with open(filename, 'rb') as fp:
-                        while True:
-                            chunk = fp.read(8192)
-                            if not chunk:
-                                break
-                            self.wfile.write(chunk)
+                        self._stream_file(fp, 0, file_size - 1)
             else:
                 self.send_error(404, 'File not found')
         elif self.path == '/list':
