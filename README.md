@@ -101,6 +101,9 @@
 - 权限/端口占用：用 `-p 8000` 或管理员权限。
 - 上传 400：确认 Content-Type 和字段名。
 
+### 测试
+后端 HTTP 集成测试和前端纯函数单元测试的运行方式、覆盖矩阵及扩展约定见 [`tests/README.md`](tests/README.md)。测试不需要额外的 Python 或 npm 测试依赖。
+
 ### 预编译可执行文件
 
 预编译的可执行文件可从 [发布页面](https://github.com/yanjing19989/simple-file-upload-download-server/releases) 下载。CI 创建两种构建方式：
@@ -235,6 +238,9 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 ### Troubleshooting
 - Permission/port issues: use `-p 8000` or run as admin.
 - Upload 400: ensure `multipart/form-data` with field name `file`.
+
+### Tests
+See [`tests/README.md`](tests/README.md) for commands, coverage, fixtures, platform notes, and conventions. The backend integration tests and frontend utility tests require no additional Python or npm test dependencies.
 
 ### Pre-built Binaries
 
