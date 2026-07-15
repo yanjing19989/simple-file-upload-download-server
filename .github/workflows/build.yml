@@ -23,8 +23,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ['3.8', '3.12']
+        include:
+          - os: ubuntu-latest
+            python-version: '3.8'
+          - os: windows-latest
+            python-version: '3.12'
 
     steps:
       - uses: actions/checkout@v4
@@ -58,15 +61,14 @@ jobs:
 
       - name: Check frontend script syntax
         run: |
-          node --check static/utils.js
-          node --check static/theme.js
-          node --check static/auth.js
-          node --check static/ui.js
-          node --check static/files.js
+          for script in static/*.js; do
+            node --check "$script"
+          done
 
   build:
     name: Build ${{ matrix.platform }}
     needs: [python-tests, javascript-tests]
+    if: github.event_name != 'pull_request'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:

@@ -1,5 +1,5 @@
 // 文件列表、上传和批量下载。请求状态通过 FSUI 的公开接口更新。
-window.FSFiles = (function () {
+(function () {
     let fileCache = [];
     let currentPath = '';
     let refreshController = null;
@@ -42,6 +42,11 @@ window.FSFiles = (function () {
         return path
             ? endpoint + '?path=' + encodeURIComponent(path)
             : endpoint;
+    }
+
+    function downloadUrl(path, key) {
+        return '/download?file=' + encodeURIComponent(path) +
+            '&key=' + encodeURIComponent(key);
     }
 
     async function fetchFileList(signal, path = currentPath) {
@@ -210,6 +215,11 @@ window.FSFiles = (function () {
         if (activeUploadRequest) activeUploadRequest.abort();
     }
 
+    function showUploadError(title, detail, message) {
+        FSUI.setUploadStatus('error', title, detail);
+        FSUI.showToast(message || '上传失败：' + detail, 'err');
+    }
+
     async function prepareUpload(files, path) {
         FSUI.setUploadStatus(
             'uploading',
@@ -260,14 +270,10 @@ window.FSFiles = (function () {
                 try {
                     prepared = await prepareUpload(files, uploadPath);
                 } catch (error) {
-                    FSUI.setUploadStatus(
-                        'error',
+                    showUploadError(
                         '无法检查同名文件',
                         error.message || '请检查服务器连接',
-                    );
-                    FSUI.showToast(
                         '上传前检查失败，请重试',
-                        'err',
                     );
                     return;
                 }
@@ -296,12 +302,11 @@ window.FSFiles = (function () {
                     return;
                 }
                 if (response.networkError) {
-                    FSUI.setUploadStatus(
-                        'error',
+                    showUploadError(
                         '网络连接失败',
                         '请检查服务器连接',
+                        '上传失败：网络连接异常',
                     );
-                    FSUI.showToast('上传失败：网络连接异常', 'err');
                     return;
                 }
                 if (response.status === 200) {
@@ -324,8 +329,7 @@ window.FSFiles = (function () {
                 const detail = response.status === 401
                     ? '访问密钥仍然无效'
                     : '服务器返回 ' + response.status;
-                FSUI.setUploadStatus('error', '上传失败', detail);
-                FSUI.showToast('上传失败：' + detail, 'err');
+                showUploadError('上传失败', detail);
                 return;
             }
         } finally {
@@ -336,17 +340,12 @@ window.FSFiles = (function () {
     }
 
     async function validateDownload(key, path) {
-        return fetch(
-            '/download?file=' + encodeURIComponent(path) +
-                '&key=' + encodeURIComponent(key),
-            { method: 'HEAD' },
-        );
+        return fetch(downloadUrl(path, key), { method: 'HEAD' });
     }
 
     function triggerDownload(path, name, key) {
         const link = document.createElement('a');
-        link.href = '/download?file=' + encodeURIComponent(path) +
-            '&key=' + encodeURIComponent(key);
+        link.href = downloadUrl(path, key);
         link.download = name;
         link.hidden = true;
         document.body.appendChild(link);
@@ -419,13 +418,4 @@ window.FSFiles = (function () {
         refreshList();
     });
 
-    return {
-        refreshList,
-        upload,
-        cancelUpload,
-        navigate,
-        downloadSelected,
-        get currentPath() { return currentPath; },
-        get fileCache() { return fileCache; },
-    };
 })();

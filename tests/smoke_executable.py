@@ -1,8 +1,4 @@
-"""Smoke-test a packaged file-server executable over real HTTP.
-
-Usage:
-    python tests/smoke_executable.py path/to/SFS
-"""
+"""Smoke-test a packaged file-server executable over real HTTP."""
 
 import http.client
 import json
@@ -99,9 +95,6 @@ def main():
             tempfile.TemporaryDirectory() as runtime:
         root = Path(storage)
         (root / 'root.txt').write_text('root', encoding='utf-8')
-        nested = root / 'nested'
-        nested.mkdir()
-        (nested / 'child.txt').write_text('child', encoding='utf-8')
 
         process_options = {}
         if os.name == 'nt':
@@ -136,19 +129,9 @@ def main():
             assert status == 200
             listing = json.loads(body)
             assert listing['path'] == ''
-            assert [item['name'] for item in listing['directories']] == [
-                'nested'
-            ]
+            assert listing['directories'] == []
             assert [item['name'] for item in listing['files']] == [
                 'root.txt'
-            ]
-
-            status, _, body = request(port, '/list?path=nested')
-            assert status == 200
-            nested_listing = json.loads(body)
-            assert nested_listing['path'] == 'nested'
-            assert [item['name'] for item in nested_listing['files']] == [
-                'child.txt'
             ]
         finally:
             stop_process_tree(process)

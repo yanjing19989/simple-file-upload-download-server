@@ -11,10 +11,6 @@ window.FSAuth = (function () {
     const error = document.getElementById('keyError');
     const cancelBtn = document.getElementById('cancelKeyBtn');
 
-    function getKey() {
-        return window.ENCRYPTED ? globalKey : '0';
-    }
-
     function showModal(message) {
         previousFocus = document.activeElement;
         previousOverflow = document.body.style.overflow;
@@ -107,5 +103,5 @@ window.FSAuth = (function () {
         }
     });
 
-    return { getKey, requestKey, resetKey };
+    return { requestKey, resetKey };
 })();

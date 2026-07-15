@@ -61,15 +61,17 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     def _parsed_url(self):
         return urllib.parse.urlsplit(self.path)
 
+    def _query_value(self, name):
+        return urllib.parse.parse_qs(
+            self._parsed_url().query, keep_blank_values=True
+        ).get(name, [''])[0]
+
     def _check_key(self):
         if not self._is_encrypted():
             return True
         key = self.headers.get('X-Secret-Key')
         if not key:
-            query = urllib.parse.parse_qs(
-                self._parsed_url().query, keep_blank_values=True
-            )
-            key = query.get('key', [''])[0]
+            key = self._query_value('key')
         return hmac.compare_digest(str(key), str(self._secret_key()))
 
     def _require_key(self):
@@ -236,21 +238,15 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
             if current.is_symlink():
                 raise PermissionError('Directory symlinks are not allowed')
 
-    def _resolve_shared_directory(self, value):
-        parts = self._relative_parts(value, allow_empty=True)
-        self._reject_symlinked_directories(parts)
-        resolved = self.storage_root.joinpath(*parts).resolve()
-        self._require_within_storage(resolved)
-        return resolved if resolved.is_dir() else None
-
-    def _resolve_shared_file(self, filename):
-        parts = self._relative_parts(filename)
+    def _resolve_shared_path(self, value, directory=False):
+        parts = self._relative_parts(value, allow_empty=directory)
         if parts is None:
             return None
-        self._reject_symlinked_directories(parts[:-1])
+        self._reject_symlinked_directories(parts if directory else parts[:-1])
         resolved = self.storage_root.joinpath(*parts).resolve()
         self._require_within_storage(resolved)
-        return resolved if resolved.is_file() else None
+        exists = resolved.is_dir() if directory else resolved.is_file()
+        return resolved if exists else None
 
     @staticmethod
     def _content_type(path):
@@ -302,10 +298,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
         try:
             upload_notice = ''
             if self._is_classic():
-                params = urllib.parse.parse_qs(
-                    self._parsed_url().query, keep_blank_values=True
-                )
-                if params.get('upload', [''])[0] == 'success':
+                if self._query_value('upload') == 'success':
                     upload_notice = (
                         '<p class="notice">上传成功，文件列表已刷新。</p>'
                     )
@@ -330,12 +323,9 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     def _send_download(self, head_only=False):
         if not self._require_key():
             return
-        params = urllib.parse.parse_qs(
-            self._parsed_url().query, keep_blank_values=True
-        )
-        filename = params.get('file', [''])[0]
+        filename = self._query_value('file')
         try:
-            path = self._resolve_shared_file(filename)
+            path = self._resolve_shared_path(filename)
         except (OSError, PermissionError):
             self.send_error(403, 'Access to the file is prohibited')
             return
@@ -402,12 +392,11 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     def _send_file_list(self):
         if not self._require_key():
             return
-        params = urllib.parse.parse_qs(
-            self._parsed_url().query, keep_blank_values=True
-        )
-        requested_path = params.get('path', [''])[0]
+        requested_path = self._query_value('path')
         try:
-            directory = self._resolve_shared_directory(requested_path)
+            directory = self._resolve_shared_path(
+                requested_path, directory=True
+            )
         except (OSError, PermissionError):
             self.send_error(403, 'Access to the directory is prohibited')
             return
@@ -465,12 +454,11 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     def _handle_upload(self):
         if not self._require_key():
             return
-        params = urllib.parse.parse_qs(
-            self._parsed_url().query, keep_blank_values=True
-        )
-        requested_path = params.get('path', [''])[0]
+        requested_path = self._query_value('path')
         try:
-            upload_directory = self._resolve_shared_directory(requested_path)
+            upload_directory = self._resolve_shared_path(
+                requested_path, directory=True
+            )
         except (OSError, PermissionError):
             self.close_connection = True
             self.send_error(403, 'Access to the directory is prohibited')
@@ -553,29 +541,24 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
         else:
             self._send_bytes(200, b'OK')
 
-    def do_GET(self):
+    def _handle_read(self, head_only=False):
         path = self._parsed_url().path
         if path == '/':
-            self._send_index()
+            self._send_index(head_only)
         elif path.startswith('/static/'):
-            self._send_static(path)
+            self._send_static(path, head_only)
         elif path == '/download':
-            self._send_download()
-        elif path == '/list':
+            self._send_download(head_only)
+        elif path == '/list' and not head_only:
             self._send_file_list()
         else:
             self.send_error(404)
 
+    def do_GET(self):
+        self._handle_read()
+
     def do_HEAD(self):
-        path = self._parsed_url().path
-        if path == '/':
-            self._send_index(head_only=True)
-        elif path.startswith('/static/'):
-            self._send_static(path, head_only=True)
-        elif path == '/download':
-            self._send_download(head_only=True)
-        else:
-            self.send_error(404)
+        self._handle_read(head_only=True)
 
     def do_POST(self):
         if self._parsed_url().path == '/upload':

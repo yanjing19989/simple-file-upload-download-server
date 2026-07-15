@@ -15,35 +15,15 @@ const FSUtils = (function () {
         numeric: true,
         sensitivity: 'base',
     });
+    // 每项依次为浅色悬停色、深色主色、深色悬停色。
     const THEME_PRESETS = {
-        '#2563eb': {
-            light: { primary: '#2563eb', hover: '#1d4ed8', contrast: '#ffffff' },
-            dark: { primary: '#60a5fa', hover: '#93c5fd', contrast: '#111827' },
-        },
-        '#0f766e': {
-            light: { primary: '#0f766e', hover: '#115e59', contrast: '#ffffff' },
-            dark: { primary: '#5eead4', hover: '#99f6e4', contrast: '#111827' },
-        },
-        '#15803d': {
-            light: { primary: '#15803d', hover: '#166534', contrast: '#ffffff' },
-            dark: { primary: '#4ade80', hover: '#86efac', contrast: '#111827' },
-        },
-        '#b45309': {
-            light: { primary: '#b45309', hover: '#92400e', contrast: '#ffffff' },
-            dark: { primary: '#fbbf24', hover: '#fcd34d', contrast: '#111827' },
-        },
-        '#c2410c': {
-            light: { primary: '#c2410c', hover: '#9a3412', contrast: '#ffffff' },
-            dark: { primary: '#fb923c', hover: '#fdba74', contrast: '#111827' },
-        },
-        '#be123c': {
-            light: { primary: '#be123c', hover: '#9f1239', contrast: '#ffffff' },
-            dark: { primary: '#fb7185', hover: '#fda4af', contrast: '#111827' },
-        },
-        '#6d28d9': {
-            light: { primary: '#6d28d9', hover: '#5b21b6', contrast: '#ffffff' },
-            dark: { primary: '#a78bfa', hover: '#c4b5fd', contrast: '#111827' },
-        },
+        '#2563eb': ['#1d4ed8', '#60a5fa', '#93c5fd'],
+        '#0f766e': ['#115e59', '#5eead4', '#99f6e4'],
+        '#15803d': ['#166534', '#4ade80', '#86efac'],
+        '#b45309': ['#92400e', '#fbbf24', '#fcd34d'],
+        '#c2410c': ['#9a3412', '#fb923c', '#fdba74'],
+        '#be123c': ['#9f1239', '#fb7185', '#fda4af'],
+        '#6d28d9': ['#5b21b6', '#a78bfa', '#c4b5fd'],
     };
     function escapeHtml(value) {
         return String(value == null ? '' : value).replace(
@@ -107,7 +87,10 @@ const FSUtils = (function () {
     function getThemePreset(value, darkMode) {
         const color = normalizeThemeColor(value);
         if (!color) throw new RangeError('Unsupported theme color');
-        return THEME_PRESETS[color][darkMode ? 'dark' : 'light'];
+        const [lightHover, darkPrimary, darkHover] = THEME_PRESETS[color];
+        return darkMode
+            ? { primary: darkPrimary, hover: darkHover, contrast: '#111827' }
+            : { primary: color, hover: lightHover, contrast: '#ffffff' };
     }
 
     function getThemeColors() {

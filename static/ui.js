@@ -1,4 +1,4 @@
-// DOM、渲染和交互状态集中在此模块，业务请求由 FSFiles 提供。
+// DOM、渲染和交互状态集中在此模块，业务请求由 files.js 提供。
 window.FSUI = (function () {
     const elements = {
         fileInput: document.getElementById('fileInput'),
