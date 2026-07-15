@@ -203,16 +203,53 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
             return None
         return candidate if candidate.is_file() else None
 
-    def _resolve_shared_file(self, filename):
-        if not filename or '\x00' in filename:
+    @staticmethod
+    def _relative_parts(value, allow_empty=False):
+        if value == '' and allow_empty:
+            return ()
+        if not value:
             return None
-        normalized = filename.replace('\\', '/')
-        if normalized != normalized.rsplit('/', 1)[-1]:
-            raise PermissionError('Nested paths are not allowed')
-        candidate = self.storage_root / normalized
-        resolved = candidate.resolve()
-        if resolved.parent != self.storage_root:
-            raise PermissionError('File is outside the shared directory')
+        if '\x00' in value or '\\' in value or value.startswith('/'):
+            raise PermissionError('Invalid shared path')
+        parts = value.split('/')
+        if any(
+            not part or part in {'.', '..'} or ':' in part
+            for part in parts
+        ):
+            raise PermissionError('Invalid shared path')
+        return tuple(parts)
+
+    def _require_within_storage(self, path):
+        try:
+            path.relative_to(self.storage_root)
+        except ValueError as error:
+            raise PermissionError(
+                'Path is outside the shared directory'
+            ) from error
+
+    def _reject_symlinked_directories(self, parts):
+        current = self.storage_root
+        for part in parts:
+            if part.startswith('.sfs-upload-'):
+                raise PermissionError('Temporary directories are private')
+            current = current / part
+            if current.is_symlink():
+                raise PermissionError('Directory symlinks are not allowed')
+
+    def _resolve_shared_directory(self, value):
+        parts = self._relative_parts(value, allow_empty=True)
+        self._reject_symlinked_directories(parts)
+        resolved = self.storage_root.joinpath(*parts).resolve()
+        self._require_within_storage(resolved)
+        return resolved if resolved.is_dir() else None
+
+    def _resolve_shared_file(self, filename):
+        parts = self._relative_parts(filename)
+        if parts is None:
+            return None
+        self._reject_symlinked_directories(parts[:-1])
+        resolved = self.storage_root.joinpath(*parts).resolve()
+        self._require_within_storage(resolved)
         return resolved if resolved.is_file() else None
 
     @staticmethod
@@ -348,12 +385,30 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
     def _send_file_list(self):
         if not self._require_key():
             return
-        files = []
+        params = urllib.parse.parse_qs(
+            self._parsed_url().query, keep_blank_values=True
+        )
+        requested_path = params.get('path', [''])[0]
         try:
-            for entry in self.storage_root.iterdir():
+            directory = self._resolve_shared_directory(requested_path)
+        except (OSError, PermissionError):
+            self.send_error(403, 'Access to the directory is prohibited')
+            return
+        if directory is None:
+            self.send_error(404, 'Directory not found')
+            return
+
+        files = []
+        directories = []
+        try:
+            for entry in directory.iterdir():
                 try:
+                    if (entry.is_dir() and
+                            entry.name.startswith('.sfs-upload-')):
+                        continue
                     resolved = entry.resolve()
-                    if resolved.parent != self.storage_root:
+                    self._require_within_storage(resolved)
+                    if entry.is_symlink() and resolved.is_dir():
                         continue
                     if resolved.is_file():
                         metadata = resolved.stat()
@@ -362,23 +417,50 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                             'size': metadata.st_size,
                             'modified': metadata.st_mtime_ns // 1_000_000,
                         })
-                except OSError:
+                    elif resolved.is_dir():
+                        metadata = resolved.stat()
+                        directories.append({
+                            'name': entry.name,
+                            'modified': metadata.st_mtime_ns // 1_000_000,
+                        })
+                except (OSError, PermissionError):
                     continue
         except OSError as error:
             self.log_error('List error: %s', error)
             self.send_error(500, 'Unable to list files')
             return
-        self._send_json({'files': files})
+        relative_path = directory.relative_to(self.storage_root).as_posix()
+        self._send_json({
+            'path': '' if relative_path == '.' else relative_path,
+            'directories': directories,
+            'files': files,
+        })
 
     @staticmethod
     def _upload_filename(value):
         if not value or '\x00' in value:
             return None
         filename = value.replace('\\', '/').rsplit('/', 1)[-1]
-        return None if filename in {'', '.', '..'} else filename
+        if filename in {'', '.', '..'} or ':' in filename:
+            return None
+        return filename
 
     def _handle_upload(self):
         if not self._require_key():
+            return
+        params = urllib.parse.parse_qs(
+            self._parsed_url().query, keep_blank_values=True
+        )
+        requested_path = params.get('path', [''])[0]
+        try:
+            upload_directory = self._resolve_shared_directory(requested_path)
+        except (OSError, PermissionError):
+            self.close_connection = True
+            self.send_error(403, 'Access to the directory is prohibited')
+            return
+        if upload_directory is None:
+            self.close_connection = True
+            self.send_error(404, 'Upload directory not found')
             return
         content_type = self.headers.get('Content-Type', '')
         media_type, parameters = cgi.parse_header(content_type)
@@ -410,7 +492,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                 return
 
             with tempfile.TemporaryDirectory(
-                prefix='.sfs-upload-', dir=self.storage_root
+                prefix='.sfs-upload-', dir=upload_directory
             ) as temporary_directory:
                 prepared = []
                 for index, item in enumerate(items):
@@ -429,7 +511,7 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                             length=UPLOAD_COPY_CHUNK_SIZE,
                         )
                     prepared.append(
-                        (temporary_path, self.storage_root / filename)
+                        (temporary_path, upload_directory / filename)
                     )
                 for temporary_path, destination in prepared:
                     os.replace(temporary_path, destination)

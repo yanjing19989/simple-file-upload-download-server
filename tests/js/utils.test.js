@@ -98,6 +98,31 @@ test('sortFiles supports all columns without mutating input', () => {
     assert.equal(files[0].name, 'file10.txt');
 });
 
+test('folder helpers build breadcrumbs and keep directories first', () => {
+    assert.equal(utils.joinPath('', 'docs'), 'docs');
+    assert.equal(utils.joinPath('docs', 'images'), 'docs/images');
+    assert.deepEqual(utils.buildBreadcrumbs('docs/images'), [
+        { label: '根目录', path: '' },
+        { label: 'docs', path: 'docs' },
+        { label: 'images', path: 'docs/images' },
+    ]);
+
+    const entries = [
+        { name: 'large.bin', kind: 'file', size: 100, modified: 300 },
+        { name: 'zeta', kind: 'directory', modified: 100 },
+        { name: 'alpha', kind: 'directory', modified: 200 },
+        { name: 'small.txt', kind: 'file', size: 10, modified: 400 },
+    ];
+    assert.deepEqual(
+        utils.sortFiles(entries, 'size', 'desc').map(item => item.name),
+        ['alpha', 'zeta', 'large.bin', 'small.txt'],
+    );
+    assert.deepEqual(
+        utils.sortFiles(entries, 'modified', 'desc').map(item => item.name),
+        ['alpha', 'zeta', 'small.txt', 'large.bin'],
+    );
+});
+
 test('findUploadConflicts catches existing and batch duplicates', () => {
     const selected = [
         { name: 'report.pdf' },

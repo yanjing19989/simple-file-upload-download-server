@@ -123,6 +123,24 @@ const FSUtils = (function () {
         );
     }
 
+    function joinPath(base, name) {
+        const prefix = String(base || '').replace(/\/+$/, '');
+        const suffix = String(name || '').replace(/^\/+/, '');
+        if (!prefix) return suffix;
+        if (!suffix) return prefix;
+        return prefix + '/' + suffix;
+    }
+
+    function buildBreadcrumbs(path) {
+        const breadcrumbs = [{ label: '根目录', path: '' }];
+        let current = '';
+        for (const part of String(path || '').split('/').filter(Boolean)) {
+            current = joinPath(current, part);
+            breadcrumbs.push({ label: part, path: current });
+        }
+        return breadcrumbs;
+    }
+
     function sortFiles(files, field = 'modified', direction = 'desc') {
         const source = Array.isArray(files) ? files.slice() : [];
         const selectedField = SORT_FIELDS.has(field)
@@ -133,6 +151,14 @@ const FSUtils = (function () {
         return source.sort((left, right) => {
             const leftName = String(left.name || '');
             const rightName = String(right.name || '');
+            const leftDirectory = left.kind === 'directory';
+            const rightDirectory = right.kind === 'directory';
+            if (leftDirectory !== rightDirectory) {
+                return leftDirectory ? -1 : 1;
+            }
+            if (selectedField === 'size' && leftDirectory) {
+                return FILE_NAME_COLLATOR.compare(leftName, rightName);
+            }
             let primary;
             if (selectedField === 'name') {
                 primary = FILE_NAME_COLLATOR.compare(leftName, rightName);
@@ -217,6 +243,8 @@ const FSUtils = (function () {
         getThemePreset,
         getThemeColors,
         filterFiles,
+        joinPath,
+        buildBreadcrumbs,
         sortFiles,
         findUploadConflicts,
         retainAvailableSelection,

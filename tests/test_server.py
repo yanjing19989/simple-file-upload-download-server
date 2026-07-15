@@ -173,6 +173,7 @@ class ServerTestCase(unittest.TestCase):
         root = Path(self.storage.name)
         (root / 'alpha.txt').write_bytes(b'alpha')
         (root / '中文.txt').write_bytes(b'123456')
+        (root / '资料').mkdir()
         self.handler.encrypted = True
         self.handler.secret_key = '4321'
 
@@ -189,9 +190,13 @@ class ServerTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(headers['Content-Type'], 'application/json; charset=utf-8')
         self.assertIn('中文.txt'.encode(), body)
-        listed = {
-            item['name']: item for item in json.loads(body)['files']
-        }
+        response = json.loads(body)
+        self.assertEqual(response['path'], '')
+        self.assertEqual(
+            [item['name'] for item in response['directories']],
+            ['资料'],
+        )
+        listed = {item['name']: item for item in response['files']}
         self.assertEqual(listed['alpha.txt']['size'], 5)
         self.assertEqual(listed['中文.txt']['size'], 6)
         for name in ('alpha.txt', '中文.txt'):
@@ -311,22 +316,117 @@ class ServerTestCase(unittest.TestCase):
             self.request('POST', '/upload', body=body, headers=headers)[0],
             400,
         )
+        body, headers = self.multipart([
+            ('file', 'blocked.txt', b'blocked'),
+        ])
+        self.assertEqual(
+            self.request(
+                'POST', '/upload?path=missing', body=body, headers=headers
+            )[0],
+            404,
+        )
+        self.assertEqual(
+            self.request(
+                'POST',
+                '/upload?path=..%2Foutside',
+                body=body,
+                headers=headers,
+            )[0],
+            403,
+        )
 
-    def test_download_rejects_nested_paths_and_external_symlinks(self):
-        """Keep downloads and listings inside the configured storage root.
-
-        Nested paths are forbidden even when URL encoded. If the platform can
-        create a symbolic link, a link resolving outside storage must be both
-        non-downloadable and absent from the file listing.
-        """
+    def test_nested_list_download_and_upload(self):
+        """Browse and transfer files within an existing nested directory."""
         root = Path(self.storage.name)
         nested = root / 'nested'
         nested.mkdir()
+        child = nested / 'child'
+        child.mkdir()
         (nested / 'secret.txt').write_bytes(b'secret')
+        (root / '.sfs-upload-hidden').mkdir()
+
+        status, _, body = self.request('GET', '/list')
+        self.assertEqual(status, 200)
+        root_listing = json.loads(body)
+        self.assertEqual(
+            [item['name'] for item in root_listing['directories']],
+            ['nested'],
+        )
         self.assertEqual(
             self.request(
-                'GET', '/download?file=nested%2Fsecret.txt'
+                'GET', '/list?path=.sfs-upload-hidden'
             )[0],
+            403,
+        )
+
+        status, _, body = self.request('GET', '/list?path=nested')
+        self.assertEqual(status, 200)
+        nested_listing = json.loads(body)
+        self.assertEqual(nested_listing['path'], 'nested')
+        self.assertEqual(
+            [item['name'] for item in nested_listing['directories']],
+            ['child'],
+        )
+        self.assertEqual(
+            [item['name'] for item in nested_listing['files']],
+            ['secret.txt'],
+        )
+
+        status, _, body = self.request(
+            'GET', '/download?file=nested%2Fsecret.txt'
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b'secret')
+        status, headers, body = self.request(
+            'HEAD', '/download?file=nested%2Fsecret.txt'
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(headers['Content-Length'], '6')
+        self.assertEqual(body, b'')
+        status, _, body = self.request(
+            'GET',
+            '/download?file=nested%2Fsecret.txt',
+            headers={'Range': 'bytes=1-3'},
+        )
+        self.assertEqual(status, 206)
+        self.assertEqual(body, b'ecr')
+
+        upload_body, headers = self.multipart([
+            ('file', 'added.txt', b'added'),
+        ])
+        status, _, _ = self.request(
+            'POST',
+            '/upload?path=nested',
+            body=upload_body,
+            headers=headers,
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual((nested / 'added.txt').read_bytes(), b'added')
+        self.assertFalse(list(nested.glob('.sfs-upload-*')))
+
+    def test_shared_path_validation_and_external_symlinks(self):
+        """Reject traversal syntax and targets outside shared storage."""
+        root = Path(self.storage.name)
+        (root / 'nested').mkdir()
+        (root / 'plain.txt').write_bytes(b'plain')
+
+        invalid_lists = (
+            '/list?path=..%2Foutside',
+            '/list?path=%2Fnested',
+            '/list?path=nested%5Cchild',
+            '/list?path=C%3A%2Ftemp',
+            '/list?path=nested%2F%2Fchild',
+        )
+        for target in invalid_lists:
+            with self.subTest(target=target):
+                self.assertEqual(self.request('GET', target)[0], 403)
+        self.assertEqual(self.request('GET', '/list?path=missing')[0], 404)
+        self.assertEqual(
+            self.request('GET', '/list?path=plain.txt')[0],
+            404,
+        )
+        self.assertEqual(
+            self.request('GET', '/download?file=..%2Fplain.txt')[0],
             403,
         )
 
@@ -344,8 +444,35 @@ class ServerTestCase(unittest.TestCase):
                 )[0],
                 403,
             )
+            external_directory = Path(external) / 'outside-directory'
+            external_directory.mkdir()
+            directory_link = root / 'outside-directory-link'
+            internal_link = root / 'nested-link'
+            try:
+                directory_link.symlink_to(
+                    external_directory,
+                    target_is_directory=True,
+                )
+                internal_link.symlink_to(
+                    root / 'nested',
+                    target_is_directory=True,
+                )
+            except OSError:
+                self.skipTest('Directory symbolic links are unavailable')
             _, _, body = self.request('GET', '/list')
             self.assertNotIn(b'outside-link.txt', body)
+            self.assertNotIn(b'outside-directory-link', body)
+            self.assertNotIn(b'nested-link', body)
+            self.assertEqual(
+                self.request(
+                    'GET', '/list?path=outside-directory-link'
+                )[0],
+                403,
+            )
+            self.assertEqual(
+                self.request('GET', '/list?path=nested-link')[0],
+                403,
+            )
 
     def test_threaded_server_handles_list_during_download(self):
         """Prove a blocked download does not serialize an unrelated list.

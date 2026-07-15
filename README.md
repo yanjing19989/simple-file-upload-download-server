@@ -20,14 +20,14 @@
 - 下载文件（浏览器或命令行），支持断点续传与 HTTP Range 请求
 - 多线程处理列表、上传和下载请求，传输任务互不阻塞
 - 上传采用分块复制、同目录临时文件和原子替换，降低大文件内存占用并避免残留半文件
-- 文件列表（名称、大小、修改时间），支持按列排序和 HEAD 请求获取文件元数据
+- 文件与文件夹列表（名称、大小、修改时间），支持当前层目录导航、按列排序和 HEAD 请求获取文件元数据
 - 进度条与智能上传速度显示（小文件使用平均速度）
 - 现代极简文件工作台（桌面双栏、移动端卡片列表）
 - 拖拽上传支持
 - 手动主题切换（浅色/深色/自动）
 - 主题色彩定制（7种预设颜色和重置选项）
 - 文件搜索与批量操作（防弹窗拦截的顺序下载）
-- 上传前同名文件确认与传输中主动取消
+- 向当前浏览目录上传文件，支持同名确认与传输中主动取消
 - 实时速度与预计完成时间显示
 - 响应式设计，支持移动设备
 - 可选加密模式：一次性 4 位密钥（请求头 `X-Secret-Key`）
@@ -68,8 +68,8 @@
 
 ### 前端使用
 **新界面（默认）：**
-- 上传：拖拽文件到上传区域或点击“选择文件”，支持多文件上传、同名覆盖确认、传输取消，并实时显示进度、速度和预计完成时间
-- 列表：自动加载文件，支持按名称、大小、修改时间排序，以及搜索、全选/反选和保留筛选前的选择状态
+- 上传：拖拽文件到上传区域或点击“选择文件”，文件会上传到当前浏览目录，并支持多文件、同名覆盖确认、传输取消、进度、速度和预计完成时间
+- 列表：通过面包屑浏览共享根目录内的已有文件夹；支持当前层搜索、按名称/大小/修改时间排序，以及文件全选/反选
 - 外观：点击右上角调色板按钮，选择浅色、深色或跟随系统模式，并可切换 7 种主题色
 - 下载：选中文件后点击“下载所选”，支持顺序批量下载和断点续传
 - 密钥：加密模式使用页面内弹窗输入密钥；密钥仅保留在当前页面内存中，可通过右上角按钮重置
@@ -79,15 +79,19 @@
 - 列表：点击"刷新列表"获取服务器当前目录文件
 - 下载：选中文件后点击"下载所选"
 
+经典界面保持根目录扁平文件模式，不显示或进入文件夹。
+
+> 文件夹需预先存在于服务器共享目录中；当前不支持上传整个文件夹、新建文件夹或将文件夹打包下载。搜索和批量选择仅作用于当前层。
+
 > 端口 80 通常需管理员权限，推荐 `-p 8000`。
 > 当前目录所有普通文件都会出现在列表中。
 
 ### 接口说明
 - `GET /` 返回前端页面
-- `GET /list` 列出当前目录文件（JSON）；每项包含 `name`、`size` 和 Unix 毫秒时间戳 `modified`，可选 `X-Secret-Key`
-- `GET /download?file=<name>` 下载指定文件，支持 HTTP Range 请求断点续传，可选 `X-Secret-Key`
-- `HEAD /download?file=<name>` 获取文件元数据（大小、类型、Range 支持），不下载文件内容，可选 `X-Secret-Key`
-- `POST /upload` 上传文件（multipart/form-data，字段名 `file`），可选 `X-Secret-Key`
+- `GET /list?path=<relative-directory>` 列出指定目录的当前层内容，返回 `path`、`directories` 和 `files`；省略 `path` 表示根目录，可选 `X-Secret-Key`
+- `GET /download?file=<relative-file-path>` 下载共享根目录内的指定文件，支持 HTTP Range 请求断点续传，可选 `X-Secret-Key`
+- `HEAD /download?file=<relative-file-path>` 获取文件元数据（大小、类型、Range 支持），不下载文件内容，可选 `X-Secret-Key`
+- `POST /upload?path=<relative-directory>` 上传文件到指定已有目录（multipart/form-data，字段名 `file`）；省略 `path` 表示根目录，可选 `X-Secret-Key`
 
 ### 加密模式说明
 - 启用 `-e` 后，所有接口校验 `X-Secret-Key`。
@@ -158,14 +162,14 @@ A tiny file upload/download server built on Python's built-in `http.server`. It 
 - File download (browser or CLI), supports resuming with HTTP Range requests
 - Concurrent request handling keeps listing, uploads, and downloads responsive
 - Chunked uploads use same-directory temporary files and atomic replacement to reduce large-file memory use and avoid partial destination files
-- File listing (name, size, and modified time) with column sorting and HEAD metadata requests
+- File and folder listing (name, size, and modified time) with current-level navigation, column sorting, and HEAD metadata requests
 - Upload progress with intelligent speed display (average speed for small files)
 - Modern minimalist workspace (two columns on desktop, file cards on mobile)
 - Drag and drop file upload support
 - Manual theme switching (light/dark/auto)
 - Theme color customization (7 preset colors and reset option)
 - File search and bulk operations (sequential downloads to prevent popup blocking)
-- Same-name confirmation before upload and active transfer cancellation
+- Uploads to the currently browsed directory with same-name confirmation and active transfer cancellation
 - Real-time speed and ETA display
 - Responsive design for mobile devices
 - Optional encrypted mode: one-time 4-digit key (via `X-Secret-Key` header)
@@ -206,8 +210,8 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 
 ### Frontend Usage
 **Enhanced Interface (Default):**
-- Upload: Drag files into the upload area or click "Select Files". Multi-file uploads include overwrite confirmation, cancellation, progress, speed, and ETA
-- List: Files load automatically with name, size, and modified-time sorting, search, select all/invert selection, and selection preserved across filters
+- Upload: Drag files into the upload area or click "Select Files". Files are uploaded to the currently browsed directory with overwrite confirmation, cancellation, progress, speed, and ETA
+- List: Browse existing folders under the shared root with breadcrumbs; search and sort the current level, then select or invert files for download
 - Appearance: Use the palette button in the top-right to choose light, dark, or system mode and one of seven accent colors
 - Download: Select files and click "Download Selected" for sequential bulk downloads with resume support
 - Key: Encrypted mode uses an in-page key dialog. The key stays in memory only and can be reset from the top-right action
@@ -217,15 +221,19 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 - List: Click Refresh to fetch all files in the server's current directory
 - Download: Select files and click Download Selected to open downloads in new windows
 
+The classic interface remains a flat root-file view and does not enter folders.
+
+> Folders must already exist under the server's shared root. Uploading whole folders, creating folders, and packaged folder downloads are not supported. Search and bulk selection apply only to the current level.
+
 > Port 80 often requires admin privileges on Windows; prefer `-p 8000`.
 > All regular files in the current working directory appear in the list.
 
 ### API
 - `GET /` Returns the built-in HTML frontend
-- `GET /list` List files in the current directory as JSON; each item contains `name`, `size`, and the Unix-millisecond timestamp `modified`, optional `X-Secret-Key`
-- `GET /download?file=<name>` Download a specific file with HTTP Range request support for resumable downloads, optional `X-Secret-Key`
-- `HEAD /download?file=<name>` Get file metadata (size, content-type, range support) without downloading content, optional `X-Secret-Key`
-- `POST /upload` Upload one or more files in multipart/form-data under the `file` field, optional `X-Secret-Key`
+- `GET /list?path=<relative-directory>` List one directory level and return `path`, `directories`, and `files`; omitting `path` selects the root, optional `X-Secret-Key`
+- `GET /download?file=<relative-file-path>` Download a file within the shared root with HTTP Range support, optional `X-Secret-Key`
+- `HEAD /download?file=<relative-file-path>` Get file metadata without downloading content, optional `X-Secret-Key`
+- `POST /upload?path=<relative-directory>` Upload multipart `file` fields to an existing directory; omitting `path` selects the root, optional `X-Secret-Key`
 
 ### Encrypted Mode Notes
 - With `-e`, the server validates `X-Secret-Key` for all endpoints.

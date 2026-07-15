@@ -11,6 +11,8 @@ window.FSUI = (function () {
         uploadStatus: document.getElementById('uploadStatus'),
         dropZone: document.getElementById('dropZone'),
         selectedList: document.getElementById('selectedList'),
+        uploadTarget: document.getElementById('uploadTarget'),
+        breadcrumb: document.getElementById('breadcrumb'),
         fileTableBody: document.getElementById('fileTableBody'),
         fileCount: document.getElementById('fileCount'),
         selectedCount: document.getElementById('selectedCount'),
@@ -106,11 +108,20 @@ window.FSUI = (function () {
         elements.uploadBtn.querySelector('span').textContent =
             uploadBusy ? '正在上传' : '开始上传';
         elements.fileInput.disabled = uploadBusy;
+        elements.resetKeyBtn.disabled = uploadBusy;
         elements.clearBtn.textContent =
             uploadBusy ? '取消上传' : '清空进度';
         elements.clearBtn.classList.toggle('ghost-button', !uploadBusy);
         elements.clearBtn.classList.toggle('danger-button', uploadBusy);
         elements.dropZone.setAttribute('aria-disabled', String(uploadBusy));
+        for (const button of elements.breadcrumb.querySelectorAll('button')) {
+            button.disabled = uploadBusy;
+        }
+        for (const button of elements.fileTableBody.querySelectorAll(
+            '.directory-link'
+        )) {
+            button.disabled = uploadBusy;
+        }
     }
 
     function setUploadStatus(type, title, detail) {
@@ -140,6 +151,36 @@ window.FSUI = (function () {
     function clearUploadSelection() {
         elements.fileInput.value = '';
         updateSelectedFiles();
+    }
+
+    function setDirectory(path) {
+        const breadcrumbs = FSUtils.buildBreadcrumbs(path);
+        const fragment = document.createDocumentFragment();
+        for (const [index, breadcrumb] of breadcrumbs.entries()) {
+            const button = document.createElement('button');
+            button.className = 'breadcrumb-button' +
+                (index === breadcrumbs.length - 1 ? ' is-current' : '');
+            button.type = 'button';
+            button.dataset.path = breadcrumb.path;
+            button.textContent = breadcrumb.label;
+            button.disabled = uploadBusy;
+            if (index === breadcrumbs.length - 1) {
+                button.setAttribute('aria-current', 'page');
+            }
+            fragment.appendChild(button);
+        }
+        elements.breadcrumb.replaceChildren(fragment);
+        elements.uploadTarget.textContent =
+            '当前位置：' + breadcrumbs.map(item => item.label).join(' / ');
+    }
+
+    function clearDirectoryState(options) {
+        selectedNames = new Set();
+        elements.searchInput.value = '';
+        if (!(options && options.preserveUpload)) {
+            clearUploadSelection();
+        }
+        updateSelected();
     }
 
     function setRefreshBusy(busy) {
@@ -218,7 +259,7 @@ window.FSUI = (function () {
         for (const button of elements.sortButtons) button.disabled = false;
         selectedNames = FSUtils.retainAvailableSelection(
             selectedNames,
-            cache,
+            cache.filter(item => item.kind !== 'directory'),
         );
         const query = elements.searchInput.value;
         const visible = FSUtils.sortFiles(
@@ -237,8 +278,8 @@ window.FSUI = (function () {
                     : '上传文件后会显示在这里',
             );
             elements.fileCount.textContent = emptySearch
-                ? '0 / ' + cache.length + ' 个文件'
-                : '0 个文件';
+                ? '0 / ' + cache.length + ' 项'
+                : '0 个文件夹 · 0 个文件';
             updateSelected();
             return;
         }
@@ -246,6 +287,26 @@ window.FSUI = (function () {
         const fragment = document.createDocumentFragment();
         for (const file of visible) {
             const row = document.createElement('tr');
+            if (file.kind === 'directory') {
+                row.className = 'directory-row';
+                row.dataset.path = file.path;
+                row.innerHTML =
+                    '<td class="checkbox-cell"><span class="directory-open" aria-hidden="true">›</span></td>' +
+                    '<td class="name-cell"><button class="directory-link" type="button" data-directory-path="' +
+                    FSUtils.escapeHtml(file.path) + '"' +
+                    (uploadBusy ? ' disabled' : '') + '>' +
+                    '<span class="file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h7v9.5A2.5 2.5 0 0 1 16.5 19h-10A2.5 2.5 0 0 1 4 16.5v-9Z"/></svg></span>' +
+                    '<span class="fname" title="' +
+                    FSUtils.escapeHtml(file.name) + '">' +
+                    FSUtils.escapeHtml(file.name) + '</span></button></td>' +
+                    '<td class="modified-cell">' +
+                    FSUtils.escapeHtml(
+                        FSUtils.formatModified(file.modified)
+                    ) + '</td>' +
+                    '<td class="size-cell">—</td>';
+                fragment.appendChild(row);
+                continue;
+            }
             const checked = selectedNames.has(file.name);
             row.className = 'file-row' + (checked ? ' is-selected' : '');
             row.dataset.name = file.name;
@@ -267,11 +328,27 @@ window.FSUI = (function () {
             fragment.appendChild(row);
         }
         elements.fileTableBody.replaceChildren(fragment);
-        elements.fileCount.textContent = query.trim()
-            ? visible.length + ' / ' + cache.length + ' 个文件'
-            : cache.length + ' 个文件';
-        elements.selectAllBtn.disabled = false;
-        elements.invertBtn.disabled = false;
+        const directoryCount = cache.filter(
+            item => item.kind === 'directory'
+        ).length;
+        const fileCount = cache.length - directoryCount;
+        if (query.trim()) {
+            const visibleDirectories = visible.filter(
+                item => item.kind === 'directory'
+            ).length;
+            elements.fileCount.textContent =
+                visibleDirectories + ' 个文件夹 · ' +
+                (visible.length - visibleDirectories) + ' 个文件' +
+                ' / 共 ' + cache.length + ' 项';
+        } else {
+            elements.fileCount.textContent =
+                directoryCount + ' 个文件夹 · ' + fileCount + ' 个文件';
+        }
+        const hasVisibleFiles = visible.some(
+            item => item.kind !== 'directory'
+        );
+        elements.selectAllBtn.disabled = !hasVisibleFiles;
+        elements.invertBtn.disabled = !hasVisibleFiles;
         updateSelected();
     }
 
@@ -397,9 +474,21 @@ window.FSUI = (function () {
         if (row) toggleRow(row, event.target.checked);
     });
     elements.fileTableBody.addEventListener('click', event => {
+        const directory = event.target.closest('.directory-link');
+        if (directory) {
+            if (!uploadBusy) {
+                actions.navigate?.(directory.dataset.directoryPath);
+            }
+            return;
+        }
         const row = event.target.closest('.file-row');
         if (!row || event.target.matches('.row-check')) return;
         toggleRow(row, !row.querySelector('.row-check').checked);
+    });
+    elements.breadcrumb.addEventListener('click', event => {
+        const button = event.target.closest('.breadcrumb-button');
+        if (!button || uploadBusy) return;
+        actions.navigate?.(button.dataset.path);
     });
     elements.selectAllBtn.addEventListener('click', () => {
         const names = [...elements.fileTableBody.querySelectorAll('.file-row')]
@@ -550,6 +639,8 @@ window.FSUI = (function () {
         getSelectedNames,
         updateSelectedFiles,
         clearUploadSelection,
+        setDirectory,
+        clearDirectoryState,
         confirmOverwrite,
         showToast,
     };

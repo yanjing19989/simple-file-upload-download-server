@@ -1,6 +1,7 @@
 // 文件列表、上传和批量下载。请求状态通过 FSUI 的公开接口更新。
 window.FSFiles = (function () {
     let fileCache = [];
+    let currentPath = '';
     let refreshController = null;
     let refreshSequence = 0;
     let uploadBusy = false;
@@ -37,24 +38,54 @@ window.FSFiles = (function () {
         return { key, response };
     }
 
-    async function fetchFileList(signal) {
-        const result = await withAuthRetry(key => fetch('/list', {
-            headers: { 'X-Secret-Key': key },
-            signal,
-        }));
+    function endpointWithPath(endpoint, path) {
+        return path
+            ? endpoint + '?path=' + encodeURIComponent(path)
+            : endpoint;
+    }
+
+    async function fetchFileList(signal, path = currentPath) {
+        const result = await withAuthRetry(key => fetch(
+            endpointWithPath('/list', path),
+            {
+                headers: { 'X-Secret-Key': key },
+                signal,
+            },
+        ));
         if (result.cancelled) return result;
         if (!result.response.ok) {
-            throw new Error('服务器返回 ' + result.response.status);
+            const error = new Error(
+                '服务器返回 ' + result.response.status
+            );
+            error.status = result.response.status;
+            throw error;
         }
         const data = await result.response.json();
-        if (!data || !Array.isArray(data.files)) {
+        if (!data || !Array.isArray(data.files) ||
+            !Array.isArray(data.directories) ||
+            typeof data.path !== 'string') {
             throw new Error('文件列表格式无效');
         }
-        return { key: result.key, files: data.files };
+        const directories = data.directories.map(directory => ({
+            ...directory,
+            kind: 'directory',
+            path: FSUtils.joinPath(data.path, directory.name),
+        }));
+        const files = data.files.map(file => ({
+            ...file,
+            kind: 'file',
+            path: FSUtils.joinPath(data.path, file.name),
+        }));
+        return {
+            key: result.key,
+            path: data.path,
+            entries: directories.concat(files),
+        };
     }
 
     async function refreshList(options) {
         const notify = options && options.notify;
+        const requestedPath = currentPath;
         const sequence = ++refreshSequence;
         if (refreshController) refreshController.abort();
         const controller = new AbortController();
@@ -63,9 +94,14 @@ window.FSFiles = (function () {
         FSUI.setRefreshBusy(true);
         FSUI.setFileViewState('loading', '正在读取文件', '正在连接服务器');
         try {
-            const result = await fetchFileList(controller.signal);
+            const result = await fetchFileList(
+                controller.signal,
+                requestedPath,
+            );
             if (result.cancelled || sequence !== refreshSequence) return;
-            fileCache = result.files;
+            currentPath = result.path;
+            fileCache = result.entries;
+            FSUI.setDirectory(currentPath);
             FSUI.renderTableFromCache(fileCache);
             FSUI.setLastRefresh();
             if (notify) FSUI.showToast('文件列表已刷新', 'ok', 1800);
@@ -73,11 +109,19 @@ window.FSFiles = (function () {
             if (error.name === 'AbortError' || sequence !== refreshSequence) {
                 return;
             }
+            const missingDirectory =
+                error.status === 404 && Boolean(requestedPath);
             FSUI.setFileViewState(
                 'error',
-                '无法读取文件列表',
-                error.message || '请检查服务器连接后重试',
-                { label: '重新加载', handler: () => refreshList() },
+                missingDirectory
+                    ? '当前目录不存在'
+                    : '无法读取文件列表',
+                missingDirectory
+                    ? '目录可能已被移动或删除'
+                    : (error.message || '请检查服务器连接后重试'),
+                missingDirectory
+                    ? { label: '返回根目录', handler: () => navigate('') }
+                    : { label: '重新加载', handler: () => refreshList() },
             );
             FSUI.showToast('文件列表加载失败', 'err');
         } finally {
@@ -88,7 +132,19 @@ window.FSFiles = (function () {
         }
     }
 
-    function createUploadRequest(files, key) {
+    function navigate(path) {
+        if (uploadBusy) {
+            FSUI.showToast('上传期间无法切换目录', 'warn');
+            return;
+        }
+        currentPath = String(path || '');
+        fileCache = [];
+        FSUI.clearDirectoryState();
+        FSUI.setDirectory(currentPath);
+        refreshList();
+    }
+
+    function createUploadRequest(files, key, path) {
         return new Promise(resolve => {
             const form = new FormData();
             files.forEach(file => form.append('file', file));
@@ -115,7 +171,7 @@ window.FSFiles = (function () {
 
             FSUI.setUploadStatus('uploading', '正在上传', '计算剩余时间');
             FSUI.setUploadProgress(0, speedText, '计算剩余时间');
-            xhr.open('POST', '/upload');
+            xhr.open('POST', endpointWithPath('/upload', path));
             xhr.setRequestHeader('X-Secret-Key', key);
             xhr.upload.onprogress = event => {
                 const now = Date.now();
@@ -154,23 +210,28 @@ window.FSFiles = (function () {
         if (activeUploadRequest) activeUploadRequest.abort();
     }
 
-    async function prepareUpload(files) {
+    async function prepareUpload(files, path) {
         FSUI.setUploadStatus(
             'uploading',
             '正在检查同名文件',
             '读取最新文件列表',
         );
-        const latest = await fetchFileList();
+        const latest = await fetchFileList(undefined, path);
         if (latest.cancelled) {
             return { cancelled: true, reason: 'auth' };
         }
-        fileCache = latest.files;
+        currentPath = latest.path;
+        FSUI.setDirectory(currentPath);
+        fileCache = latest.entries;
         FSUI.renderTableFromCache(fileCache);
         FSUI.setLastRefresh();
         if (uploadCancelRequested) {
             return { cancelled: true, reason: 'cancel' };
         }
-        const conflicts = FSUtils.findUploadConflicts(files, fileCache);
+        const conflicts = FSUtils.findUploadConflicts(
+            files,
+            fileCache.filter(entry => entry.kind === 'file'),
+        );
         if (conflicts.length) {
             const confirmed = await FSUI.confirmOverwrite(conflicts);
             if (!confirmed) {
@@ -190,13 +251,14 @@ window.FSFiles = (function () {
 
         uploadBusy = true;
         uploadCancelRequested = false;
+        const uploadPath = currentPath;
         FSUI.setUploadBusy(true);
         try {
             let authRestarts = 0;
             while (authRestarts <= 1) {
                 let prepared;
                 try {
-                    prepared = await prepareUpload(files);
+                    prepared = await prepareUpload(files, uploadPath);
                 } catch (error) {
                     FSUI.setUploadStatus(
                         'error',
@@ -223,6 +285,7 @@ window.FSFiles = (function () {
                 const response = await createUploadRequest(
                     files,
                     prepared.key,
+                    uploadPath,
                 );
                 if (response.aborted || uploadCancelRequested) {
                     FSUI.setUploadStatus(
@@ -272,17 +335,17 @@ window.FSFiles = (function () {
         }
     }
 
-    async function validateDownload(key, name) {
+    async function validateDownload(key, path) {
         return fetch(
-            '/download?file=' + encodeURIComponent(name) +
+            '/download?file=' + encodeURIComponent(path) +
                 '&key=' + encodeURIComponent(key),
             { method: 'HEAD' },
         );
     }
 
-    function triggerDownload(name, key) {
+    function triggerDownload(path, name, key) {
         const link = document.createElement('a');
-        link.href = '/download?file=' + encodeURIComponent(name) +
+        link.href = '/download?file=' + encodeURIComponent(path) +
             '&key=' + encodeURIComponent(key);
         link.download = name;
         link.hidden = true;
@@ -302,16 +365,25 @@ window.FSFiles = (function () {
         downloadBusy = true;
         FSUI.setDownloadBusy(true);
         try {
+            const downloadPath = currentPath;
+            const paths = names.map(name =>
+                FSUtils.joinPath(downloadPath, name)
+            );
             const result = await withAuthRetry(
-                key => validateDownload(key, names[0]),
+                key => validateDownload(key, paths[0]),
             );
             if (result.cancelled) return;
             if (!result.response.ok) {
                 throw new Error('服务器返回 ' + result.response.status);
             }
+            if (currentPath !== downloadPath) {
+                currentPath = downloadPath;
+                FSUI.setDirectory(currentPath);
+                refreshList();
+            }
             FSUI.showToast('开始下载 ' + names.length + ' 个文件');
             for (let index = 0; index < names.length; index++) {
-                triggerDownload(names[index], result.key);
+                triggerDownload(paths[index], names[index], result.key);
                 if (index < names.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 300));
                 }
@@ -331,19 +403,29 @@ window.FSFiles = (function () {
         upload,
         cancelUpload,
         refresh: refreshList,
+        navigate,
         download: downloadSelected,
         getFiles: () => fileCache,
     });
     window.addEventListener('fs:key-reset', () => {
-        if (window.ENCRYPTED) fileCache = [];
+        if (!window.ENCRYPTED) return;
+        fileCache = [];
+        currentPath = '';
+        FSUI.clearDirectoryState({ preserveUpload: true });
+        FSUI.setDirectory(currentPath);
     });
-    window.addEventListener('DOMContentLoaded', () => refreshList());
+    window.addEventListener('DOMContentLoaded', () => {
+        FSUI.setDirectory(currentPath);
+        refreshList();
+    });
 
     return {
         refreshList,
         upload,
         cancelUpload,
+        navigate,
         downloadSelected,
+        get currentPath() { return currentPath; },
         get fileCache() { return fileCache; },
     };
 })();
