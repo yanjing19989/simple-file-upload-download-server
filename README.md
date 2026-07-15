@@ -18,6 +18,8 @@
 ### 功能
 - 上传多个文件（multipart/form-data），支持实时速度与 ETA 显示
 - 下载文件（浏览器或命令行），支持断点续传与 HTTP Range 请求
+- 多线程处理列表、上传和下载请求，传输任务互不阻塞
+- 上传采用分块复制、同目录临时文件和原子替换，降低大文件内存占用并避免残留半文件
 - 文件列表（名称 + 大小），支持 HEAD 请求获取文件元数据
 - 进度条与智能上传速度显示（小文件使用平均速度）
 - 现代极简文件工作台（桌面双栏、移动端卡片列表）
@@ -92,7 +94,8 @@
 
 ### 安全与注意事项
 - 仅用于局域网/临时传输，无权限隔离和传输加密
-- Python `cgi` 模块已废弃，未来可能移除。
+- 静态资源和共享文件均限制在服务目录内，密钥使用恒定时间比较，访问日志会隐藏下载 URL 中的密钥
+- 当前 multipart 上传实现使用标准库 `cgi`，支持 Python 3.8–3.12；该模块自 Python 3.11 起已废弃，并在 Python 3.13 中移除
 
 ### 故障排查
 - 权限/端口占用：用 `-p 8000` 或管理员权限。
@@ -149,6 +152,8 @@ A tiny file upload/download server built on Python's built-in `http.server`. It 
 ### Features
 - Multi-file upload (multipart/form-data) with real-time speed and ETA display
 - File download (browser or CLI), supports resuming with HTTP Range requests
+- Concurrent request handling keeps listing, uploads, and downloads responsive
+- Chunked uploads use same-directory temporary files and atomic replacement to reduce large-file memory use and avoid partial destination files
 - File listing (name + size), supports HEAD requests for file metadata
 - Upload progress with intelligent speed display (average speed for small files)
 - Modern minimalist workspace (two columns on desktop, file cards on mobile)
@@ -224,7 +229,8 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 
 ### Security Notes
 - Intended for LAN/temporary use; no auth roles or auditing.
-- Python's `cgi` module is deprecated since 3.11 and may be removed in future.
+- Static and shared-file paths are confined to their service directories, keys use constant-time comparison, and download keys are redacted from access logs.
+- The current multipart implementation uses the standard-library `cgi` parser and supports Python 3.8–3.12. `cgi` was deprecated in Python 3.11 and removed in Python 3.13.
 
 ### Troubleshooting
 - Permission/port issues: use `-p 8000` or run as admin.

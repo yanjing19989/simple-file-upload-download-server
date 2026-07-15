@@ -20,6 +20,7 @@
     }
 
     function applyTheme(mode, notify) {
+        mode = FSUtils.normalizeThemeMode(mode);
         const isDark = mode === 'dark' || (mode === 'auto' && media.matches);
         document.documentElement.classList.toggle('dark-mode', isDark);
         setSavedValue(themeKey, mode);
@@ -49,6 +50,7 @@
     }
 
     function applyThemeColor(hex, persist, notify) {
+        hex = FSUtils.normalizeThemeColor(hex, defaultColor);
         const rgb = hexToRgb(hex);
         const root = document.documentElement.style;
         root.setProperty('--primary', hex);
@@ -107,6 +109,10 @@
     };
     try { media.addEventListener('change', mediaChanged); } catch (e) { media.addListener(mediaChanged); }
 
-    applyTheme(savedValue(themeKey, 'auto'), false);
-    applyThemeColor(savedValue(colorKey, defaultColor), false, false);
+    applyTheme(FSUtils.normalizeThemeMode(savedValue(themeKey, 'auto')), false);
+    applyThemeColor(
+        FSUtils.normalizeThemeColor(savedValue(colorKey, defaultColor), defaultColor),
+        false,
+        false,
+    );
 })();

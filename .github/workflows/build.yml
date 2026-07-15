@@ -29,31 +29,25 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.8'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
 
     - name: Install requirements
       run: pip install pyinstaller qrcode
 
-    - name: Test application
+    - name: Run Python tests
       run: |
         python file.py --help
-        echo "test content" > test.txt
-        python -c "
-        import os, json
-        from file import UploadHTTPRequestHandler
-        print('Application imports successfully')
-        if os.path.exists('static/index.html'):
-            print('Static files found')
-        if os.path.exists('static/classic.html'):
-            print('Classic HTML found')
-        # Test that we can create the server class
-        handler = UploadHTTPRequestHandler
-        print('Server handler class created successfully')
-        "
-        rm test.txt
-      shell: bash
+        python -m unittest discover -s tests -p "test_*.py" -v
+
+    - name: Run JavaScript tests
+      run: node --test tests/js/*.test.js
 
     - name: Build with PyInstaller Directory
       run: |
