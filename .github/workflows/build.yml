@@ -1,18 +1,77 @@
-name: Build and Release
+name: CI, Build and Release
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
+    tags: ['v*']
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
-  build:
+  python-tests:
+    name: Python ${{ matrix.python-version }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        python-version: ['3.8', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Test command-line entry point
+        run: python file.py --help
+
+      - name: Run backend integration tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+  javascript-tests:
+    name: JavaScript tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run frontend unit tests
+        run: node --test tests/js/*.test.js
+
+      - name: Check frontend script syntax
+        run: |
+          node --check static/utils.js
+          node --check static/theme.js
+          node --check static/auth.js
+          node --check static/ui.js
+          node --check static/files.js
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: [python-tests, javascript-tests]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
         include:
           - os: ubuntu-latest
             platform: linux
@@ -23,103 +82,70 @@ jobs:
             archive_ext: zip
             archive_cmd: 7z a
 
-    runs-on: ${{ matrix.os }}
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.8'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - name: Install packaging tools
+        run: python -m pip install --disable-pip-version-check pyinstaller qrcode
 
-    - name: Install requirements
-      run: pip install pyinstaller qrcode
+      - name: Build directory executable
+        run: pyinstaller -D file.py -n SFS --add-data static:static
 
-    - name: Run Python tests
-      run: |
-        python file.py --help
-        python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Build one-file executable
+        run: pyinstaller -F file.py -n SFS-onefile --add-data static:static
 
-    - name: Run JavaScript tests
-      run: node --test tests/js/*.test.js
+      - name: Smoke-test built executables
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            directory_executable="dist/SFS/SFS.exe"
+            onefile_executable="dist/SFS-onefile.exe"
+          else
+            directory_executable="dist/SFS/SFS"
+            onefile_executable="dist/SFS-onefile"
+          fi
+          test -f "$directory_executable"
+          test -f "$onefile_executable"
+          "$directory_executable" --help
+          "$onefile_executable" --help
+          python tests/smoke_executable.py "$directory_executable"
+          python tests/smoke_executable.py "$onefile_executable"
 
-    - name: Build with PyInstaller Directory
-      run: |
-        pyinstaller -D file.py -n SFS --add-data static:static
-        echo "Verifying build outputs..."
-        ls -la dist/
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          test -f "dist/SFS/SFS.exe" || exit 1
-        else
-          test -f "dist/SFS/SFS" || exit 1
-        fi
-        echo "Build verification completed successfully"
-      shell: bash
+      - name: Create directory archive
+        shell: bash
+        run: |
+          cd dist
+          ${{ matrix.archive_cmd }} SFS-${{ matrix.platform }}.${{ matrix.archive_ext }} SFS
 
-    - name: Build with PyInstaller One File
-      run: |
-        pyinstaller -F file.py -n SFS-onefile --add-data static:static
-        echo "Verifying one-file build outputs..."
-        ls -la dist/
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          test -f "dist/SFS-onefile.exe" || exit 1
-        else
-          test -f "dist/SFS-onefile" || exit 1
-        fi
-        echo "One-file build verification completed successfully"
-      shell: bash
-
-    - name: Create directory archive
-      run: |
-        cd dist
-        ${{ matrix.archive_cmd }} SFS-${{ matrix.platform }}.${{ matrix.archive_ext }} SFS
-      shell: bash
-
-    - name: Upload directory build
-      uses: actions/upload-artifact@v4
-      with:
-        name: SFS-${{ matrix.platform }}
-        path: |
-          dist/SFS-${{ matrix.platform }}.${{ matrix.archive_ext }}
-          dist/SFS-onefile${{ matrix.platform == 'windows' && '.exe' || '' }}
-
-    - name: Test built executables
-      run: |
-        cd dist
-        echo "Testing directory build..."
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          ./SFS/SFS.exe --help || echo "Directory build help test completed"
-        else
-          ./SFS/SFS --help || echo "Directory build help test completed"
-        fi
-        echo "Testing one-file build..."
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          ./SFS-onefile.exe --help || echo "One-file build help test completed"
-        else
-          ./SFS-onefile --help || echo "One-file build help test completed"
-        fi
-      shell: bash
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SFS-${{ matrix.platform }}
+          path: |
+            dist/SFS-${{ matrix.platform }}.${{ matrix.archive_ext }}
+            dist/SFS-onefile${{ matrix.platform == 'windows' && '.exe' || '' }}
+          if-no-files-found: error
 
   release:
+    name: Publish release
     needs: build
-    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          SFS-linux/*
-          SFS-windows/*
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            SFS-linux/*
+            SFS-windows/*

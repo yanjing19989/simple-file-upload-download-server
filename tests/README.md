@@ -21,6 +21,14 @@ node --test tests/js/*.test.js
 python -m unittest tests.test_server.ServerTestCase.test_download_head_and_range_forms -v
 ```
 
+打包后可执行文件的 HTTP 冒烟测试由 CI 调用：
+
+```powershell
+python tests/smoke_executable.py path/to/SFS
+```
+
+该脚本会在临时目录启动可执行文件，验证现代首页、根目录列表和嵌套目录列表后关闭进程。
+
 ## 后端测试
 
 [`test_server.py`](test_server.py) 为真实 HTTP 集成测试。每个测试都会：
@@ -68,3 +76,9 @@ python -m unittest tests.test_server.ServerTestCase.test_download_head_and_range
 - 并发测试使用 `Event` 等确定性同步手段，不使用固定 `sleep` 猜测请求时序。
 - JavaScript 业务纯函数应继续放在无 DOM 依赖的模块中，通过 Node 内置测试运行器验证。
 - 新增兼容行为时，同时更新本文件的覆盖矩阵和 CI 测试命令。
+
+## GitHub Actions
+
+- Python 集成测试在 Ubuntu 与 Windows、Python 3.8 与 3.12 上运行。
+- JavaScript 单元测试和所有前端脚本语法检查作为独立门禁运行。
+- Linux/Windows 打包任务仅在所有测试通过后执行，并对目录版、单文件版产物分别运行命令行及真实 HTTP 冒烟测试。
