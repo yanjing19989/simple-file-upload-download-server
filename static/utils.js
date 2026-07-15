@@ -10,11 +10,36 @@ const FSUtils = (function () {
         ['SRC', new Set(['py', 'js', 'ts', 'java', 'c', 'cpp', 'go', 'rs', 'sh', 'bat'])],
     ];
     const THEME_MODES = new Set(['light', 'dark', 'auto']);
-    const THEME_COLORS = new Set([
-        '#4f46e5', '#7c3aed', '#0891b2', '#059669',
-        '#d97706', '#dc2626', '#db2777',
-    ]);
-
+    const THEME_PRESETS = {
+        '#2563eb': {
+            light: { primary: '#2563eb', hover: '#1d4ed8', contrast: '#ffffff' },
+            dark: { primary: '#60a5fa', hover: '#93c5fd', contrast: '#111827' },
+        },
+        '#0f766e': {
+            light: { primary: '#0f766e', hover: '#115e59', contrast: '#ffffff' },
+            dark: { primary: '#5eead4', hover: '#99f6e4', contrast: '#111827' },
+        },
+        '#15803d': {
+            light: { primary: '#15803d', hover: '#166534', contrast: '#ffffff' },
+            dark: { primary: '#4ade80', hover: '#86efac', contrast: '#111827' },
+        },
+        '#b45309': {
+            light: { primary: '#b45309', hover: '#92400e', contrast: '#ffffff' },
+            dark: { primary: '#fbbf24', hover: '#fcd34d', contrast: '#111827' },
+        },
+        '#c2410c': {
+            light: { primary: '#c2410c', hover: '#9a3412', contrast: '#ffffff' },
+            dark: { primary: '#fb923c', hover: '#fdba74', contrast: '#111827' },
+        },
+        '#be123c': {
+            light: { primary: '#be123c', hover: '#9f1239', contrast: '#ffffff' },
+            dark: { primary: '#fb7185', hover: '#fda4af', contrast: '#111827' },
+        },
+        '#6d28d9': {
+            light: { primary: '#6d28d9', hover: '#5b21b6', contrast: '#ffffff' },
+            dark: { primary: '#a78bfa', hover: '#c4b5fd', contrast: '#111827' },
+        },
+    };
     function escapeHtml(value) {
         return String(value == null ? '' : value).replace(
             /[&<>"']/g,
@@ -55,14 +80,19 @@ const FSUtils = (function () {
         return THEME_MODES.has(value) ? value : 'auto';
     }
 
-    function normalizeThemeColor(value, fallback = '#4f46e5') {
+    function normalizeThemeColor(value) {
         const normalized = String(value || '').toLowerCase();
-        const normalizedFallback = String(fallback || '').toLowerCase();
-        return THEME_COLORS.has(normalized)
-            ? normalized
-            : (THEME_COLORS.has(normalizedFallback)
-                ? normalizedFallback
-                : '#4f46e5');
+        return THEME_PRESETS[normalized] ? normalized : null;
+    }
+
+    function getThemePreset(value, darkMode) {
+        const color = normalizeThemeColor(value);
+        if (!color) throw new RangeError('Unsupported theme color');
+        return THEME_PRESETS[color][darkMode ? 'dark' : 'light'];
+    }
+
+    function getThemeColors() {
+        return Object.keys(THEME_PRESETS);
     }
 
     function filterFiles(files, query) {
@@ -109,6 +139,8 @@ const FSUtils = (function () {
         extIcon,
         normalizeThemeMode,
         normalizeThemeColor,
+        getThemePreset,
+        getThemeColors,
         filterFiles,
         retainAvailableSelection,
         updateVisibleSelection,

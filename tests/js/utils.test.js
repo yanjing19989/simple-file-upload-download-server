@@ -44,10 +44,15 @@ test('theme preferences only accept supported values', () => {
     // These inputs model corrupted or manually edited localStorage values.
     assert.equal(utils.normalizeThemeMode('dark'), 'dark');
     assert.equal(utils.normalizeThemeMode('sepia'), 'auto');
-    assert.equal(utils.normalizeThemeColor('#7C3AED'), '#7c3aed');
-    assert.equal(utils.normalizeThemeColor('#ffffff'), '#4f46e5');
-    assert.equal(utils.normalizeThemeColor('bad', '#059669'), '#059669');
-    assert.equal(utils.normalizeThemeColor('bad', 'also-bad'), '#4f46e5');
+    assert.equal(utils.normalizeThemeColor('#6D28D9'), '#6d28d9');
+    assert.equal(utils.normalizeThemeColor('#ffffff'), null);
+    assert.equal(utils.normalizeThemeColor('bad'), null);
+    assert.equal(utils.normalizeThemeColor('#4f46e5'), null);
+    assert.equal(utils.normalizeThemeColor('#db2777'), null);
+    assert.throws(
+        () => utils.getThemePreset('#4f46e5', false),
+        /Unsupported theme color/,
+    );
 });
 
 test('filterFiles is case-insensitive and does not mutate input', () => {
