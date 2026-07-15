@@ -64,7 +64,7 @@ window.ENCRYPTED = {encrypted_status};
                 <label class="search-box" for="search"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg><input id="search" type="search" placeholder="搜索文件名" autocomplete="off"><span class="sr-only">搜索文件名</span></label>
                 <div class="selection-actions" role="group" aria-label="批量选择"><button class="button ghost-button compact-button" id="selectAllBtn" type="button">全选</button><button class="button ghost-button compact-button" id="invertBtn" type="button">反选</button></div>
             </div>
-            <div class="table-container"><table class="files-table" id="filesTable"><thead><tr><th class="check-column"><span class="sr-only">选择</span></th><th>文件名</th><th class="size-column">大小</th></tr></thead><tbody id="fileTableBody"><tr class="state-row"><td colspan="3"><span class="loading-spinner" aria-hidden="true"></span><strong>正在读取文件</strong><small>请稍候</small></td></tr></tbody></table></div>
+            <div class="table-container"><table class="files-table" id="filesTable"><thead><tr><th class="check-column"><span class="sr-only">选择</span></th><th data-sort-field="name" aria-sort="none"><button class="sort-button" type="button" data-sort="name">文件名<span class="sort-indicator" aria-hidden="true"></span></button></th><th class="modified-column" data-sort-field="modified" aria-sort="descending"><button class="sort-button" type="button" data-sort="modified">修改时间<span class="sort-indicator" aria-hidden="true">↓</span></button></th><th class="size-column" data-sort-field="size" aria-sort="none"><button class="sort-button align-right" type="button" data-sort="size">大小<span class="sort-indicator" aria-hidden="true"></span></button></th></tr></thead><tbody id="fileTableBody"><tr class="state-row"><td colspan="4"><span class="loading-spinner" aria-hidden="true"></span><strong>正在读取文件</strong><small>请稍候</small></td></tr></tbody></table></div>
             <div class="files-footer">
                 <div class="selection-summary"><strong id="selectedCount">0</strong><span>个文件已选</span><small id="lastRefresh">尚未刷新</small></div>
                 <button class="button primary-button download-button" id="downloadSelBtn" type="button" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4v12m0 0 4.5-4.5M12 16l-4.5-4.5"/><path d="M5 20h14"/></svg><span>下载所选</span></button>
@@ -79,6 +79,16 @@ window.ENCRYPTED = {encrypted_status};
         <span class="modal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg></span>
         <h2 id="keyModalTitle">输入访问密钥</h2><p id="keyModalDesc">此文件中心已启用保护，请输入服务器控制台显示的 4 位密钥。</p>
         <form id="keyForm"><label for="keyInput">访问密钥</label><input id="keyInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="32" placeholder="请输入密钥"><span class="field-error" id="keyError" role="alert"></span><div class="modal-actions"><button class="button ghost-button" id="cancelKeyBtn" type="button">取消</button><button class="button primary-button" type="submit">继续</button></div></form>
+    </section>
+</div>
+<div class="modal-backdrop" id="overwriteModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="overwriteModalTitle" aria-describedby="overwriteModalDesc">
+        <span class="modal-icon warning-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01"/><path d="M10.3 4.9 3.2 17.2A1.2 1.2 0 0 0 4.2 19h15.6a1.2 1.2 0 0 0 1-1.8L13.7 4.9a1.9 1.9 0 0 0-3.4 0Z"/></svg></span>
+        <h2 id="overwriteModalTitle">将替换同名文件</h2>
+        <p id="overwriteModalDesc">以下文件已存在或在本次选择中重名，继续上传会保留最后写入的内容。</p>
+        <ul class="conflict-list" id="overwriteList"></ul>
+        <p class="conflict-more" id="overwriteMore" hidden></p>
+        <div class="modal-actions"><button class="button ghost-button" id="cancelOverwriteBtn" type="button">取消</button><button class="button danger-button" id="confirmOverwriteBtn" type="button">继续覆盖</button></div>
     </section>
 </div>
 <div class="modal-backdrop" id="aboutModal" hidden>

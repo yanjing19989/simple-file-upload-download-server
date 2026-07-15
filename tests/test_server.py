@@ -15,6 +15,7 @@ do not have permission to create symbolic links.
 """
 
 import http.client
+import json
 import tempfile
 import threading
 import time
@@ -188,6 +189,15 @@ class ServerTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(headers['Content-Type'], 'application/json; charset=utf-8')
         self.assertIn('中文.txt'.encode(), body)
+        listed = {
+            item['name']: item for item in json.loads(body)['files']
+        }
+        self.assertEqual(listed['alpha.txt']['size'], 5)
+        self.assertEqual(listed['中文.txt']['size'], 6)
+        for name in ('alpha.txt', '中文.txt'):
+            expected = (root / name).stat().st_mtime_ns // 1_000_000
+            self.assertEqual(listed[name]['modified'], expected)
+            self.assertIsInstance(listed[name]['modified'], int)
 
     def test_download_head_and_range_forms(self):
         """Cover HEAD plus every supported single-byte-range form.

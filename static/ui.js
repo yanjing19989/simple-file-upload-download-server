@@ -21,6 +21,12 @@ window.FSUI = (function () {
         invertBtn: document.getElementById('invertBtn'),
         searchInput: document.getElementById('search'),
         clearBtn: document.getElementById('clearBtn'),
+        sortButtons: document.querySelectorAll('[data-sort]'),
+        overwriteModal: document.getElementById('overwriteModal'),
+        overwriteList: document.getElementById('overwriteList'),
+        overwriteMore: document.getElementById('overwriteMore'),
+        cancelOverwriteBtn: document.getElementById('cancelOverwriteBtn'),
+        confirmOverwriteBtn: document.getElementById('confirmOverwriteBtn'),
         resetKeyBtn: document.getElementById('resetKeyBtn'),
         encState: document.getElementById('encState'),
         securityPill: document.getElementById('securityPill'),
@@ -33,6 +39,10 @@ window.FSUI = (function () {
     let selectedNames = new Set();
     let uploadBusy = false;
     let downloadBusy = false;
+    let sortState = { field: 'modified', direction: 'desc' };
+    let pendingOverwrite = null;
+    let overwritePreviousFocus = null;
+    let overwritePreviousOverflow = '';
     let lastFocusedElement = null;
     let previousBodyOverflow = '';
 
@@ -96,7 +106,10 @@ window.FSUI = (function () {
         elements.uploadBtn.querySelector('span').textContent =
             uploadBusy ? '正在上传' : '开始上传';
         elements.fileInput.disabled = uploadBusy;
-        elements.clearBtn.disabled = uploadBusy;
+        elements.clearBtn.textContent =
+            uploadBusy ? '取消上传' : '清空进度';
+        elements.clearBtn.classList.toggle('ghost-button', !uploadBusy);
+        elements.clearBtn.classList.toggle('danger-button', uploadBusy);
         elements.dropZone.setAttribute('aria-disabled', String(uploadBusy));
     }
 
@@ -122,6 +135,11 @@ window.FSUI = (function () {
     function clearUploadProgress() {
         setUploadProgress(0, '0 KB/s', '准备就绪');
         setUploadStatus('idle', '等待上传', '准备就绪');
+    }
+
+    function clearUploadSelection() {
+        elements.fileInput.value = '';
+        updateSelectedFiles();
     }
 
     function setRefreshBusy(busy) {
@@ -154,7 +172,7 @@ window.FSUI = (function () {
         const row = document.createElement('tr');
         row.className = 'state-row';
         const cell = document.createElement('td');
-        cell.colSpan = 3;
+        cell.colSpan = 4;
         if (kind === 'loading') {
             cell.innerHTML =
                 '<span class="loading-spinner" aria-hidden="true"></span>' +
@@ -182,6 +200,10 @@ window.FSUI = (function () {
         elements.fileTableBody.replaceChildren(row);
         elements.selectAllBtn.disabled = true;
         elements.invertBtn.disabled = true;
+        if (kind === 'locked') {
+            elements.searchInput.disabled = true;
+            for (const button of elements.sortButtons) button.disabled = true;
+        }
     }
 
     function updateSelected() {
@@ -192,12 +214,18 @@ window.FSUI = (function () {
 
     function renderTableFromCache(files) {
         const cache = Array.isArray(files) ? files : [];
+        elements.searchInput.disabled = false;
+        for (const button of elements.sortButtons) button.disabled = false;
         selectedNames = FSUtils.retainAvailableSelection(
             selectedNames,
             cache,
         );
         const query = elements.searchInput.value;
-        const visible = FSUtils.filterFiles(cache, query);
+        const visible = FSUtils.sortFiles(
+            FSUtils.filterFiles(cache, query),
+            sortState.field,
+            sortState.direction,
+        );
 
         if (!visible.length) {
             const emptySearch = Boolean(query.trim() && cache.length);
@@ -231,6 +259,9 @@ window.FSUI = (function () {
                 '<span class="fname" title="' +
                 FSUtils.escapeHtml(file.name) + '">' +
                 FSUtils.escapeHtml(file.name) + '</span></div></td>' +
+                '<td class="modified-cell">' +
+                FSUtils.escapeHtml(FSUtils.formatModified(file.modified)) +
+                '</td>' +
                 '<td class="size-cell">' +
                 FSUtils.formatSize(file.size) + '</td>';
             fragment.appendChild(row);
@@ -242,6 +273,56 @@ window.FSUI = (function () {
         elements.selectAllBtn.disabled = false;
         elements.invertBtn.disabled = false;
         updateSelected();
+    }
+
+    function updateSortHeaders() {
+        for (const button of elements.sortButtons) {
+            const active = button.dataset.sort === sortState.field;
+            const direction = sortState.direction === 'asc'
+                ? 'ascending'
+                : 'descending';
+            button.closest('th').setAttribute(
+                'aria-sort',
+                active ? direction : 'none',
+            );
+            button.querySelector('.sort-indicator').textContent = active
+                ? (sortState.direction === 'asc' ? '↑' : '↓')
+                : '';
+            button.title = active
+                ? '当前排序，点击切换方向'
+                : '按此列排序';
+        }
+    }
+
+    function finishOverwrite(value) {
+        if (!pendingOverwrite) return;
+        const resolve = pendingOverwrite;
+        pendingOverwrite = null;
+        elements.overwriteModal.hidden = true;
+        document.body.style.overflow = overwritePreviousOverflow;
+        overwritePreviousFocus?.focus();
+        resolve(value);
+    }
+
+    function confirmOverwrite(names) {
+        const conflicts = Array.isArray(names) ? names : [];
+        if (!conflicts.length) return Promise.resolve(true);
+        overwritePreviousFocus = document.activeElement;
+        overwritePreviousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        elements.overwriteList.replaceChildren();
+        for (const name of conflicts.slice(0, 5)) {
+            const item = document.createElement('li');
+            item.textContent = name;
+            elements.overwriteList.appendChild(item);
+        }
+        const remaining = conflicts.length - 5;
+        elements.overwriteMore.hidden = remaining <= 0;
+        elements.overwriteMore.textContent =
+            remaining > 0 ? '另有 ' + remaining + ' 个重名文件' : '';
+        elements.overwriteModal.hidden = false;
+        requestAnimationFrame(() => elements.cancelOverwriteBtn.focus());
+        return new Promise(resolve => { pendingOverwrite = resolve; });
     }
 
     function toggleRow(row, checked) {
@@ -297,7 +378,10 @@ window.FSUI = (function () {
         }
     });
     elements.fileInput.addEventListener('change', updateSelectedFiles);
-    elements.clearBtn.addEventListener('click', clearUploadProgress);
+    elements.clearBtn.addEventListener('click', () => {
+        if (uploadBusy) actions.cancelUpload?.();
+        else clearUploadProgress();
+    });
     elements.uploadBtn.addEventListener('click', () => actions.upload?.());
     elements.refreshBtn.addEventListener('click', () => actions.refresh?.({
         notify: true,
@@ -341,6 +425,52 @@ window.FSUI = (function () {
         'input',
         FSUtils.debounce(() => renderTableFromCache(currentFiles()), 120),
     );
+    for (const button of elements.sortButtons) {
+        button.addEventListener('click', () => {
+            const field = button.dataset.sort;
+            if (sortState.field === field) {
+                sortState.direction =
+                    sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState = {
+                    field,
+                    direction: field === 'name' ? 'asc' : 'desc',
+                };
+            }
+            updateSortHeaders();
+            renderTableFromCache(currentFiles());
+        });
+    }
+
+    elements.cancelOverwriteBtn.addEventListener(
+        'click',
+        () => finishOverwrite(false),
+    );
+    elements.confirmOverwriteBtn.addEventListener(
+        'click',
+        () => finishOverwrite(true),
+    );
+    elements.overwriteModal.addEventListener('mousedown', event => {
+        if (event.target === elements.overwriteModal) finishOverwrite(false);
+    });
+    document.addEventListener('keydown', event => {
+        if (elements.overwriteModal.hidden) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            finishOverwrite(false);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const first = elements.cancelOverwriteBtn;
+        const last = elements.confirmOverwriteBtn;
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
 
     function openAbout() {
         lastFocusedElement = document.activeElement;
@@ -405,6 +535,7 @@ window.FSUI = (function () {
     });
 
     window.showToast = showToast;
+    updateSortHeaders();
     return {
         bindActions,
         getUploadFiles,
@@ -418,6 +549,8 @@ window.FSUI = (function () {
         renderTableFromCache,
         getSelectedNames,
         updateSelectedFiles,
+        clearUploadSelection,
+        confirmOverwrite,
         showToast,
     };
 })();

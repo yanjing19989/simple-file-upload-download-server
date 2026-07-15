@@ -5,6 +5,8 @@ window.FSFiles = (function () {
     let refreshSequence = 0;
     let uploadBusy = false;
     let downloadBusy = false;
+    let activeUploadRequest = null;
+    let uploadCancelRequested = false;
 
     function showLockedState(title = '文件列表已锁定') {
         FSUI.setFileViewState(
@@ -35,6 +37,22 @@ window.FSFiles = (function () {
         return { key, response };
     }
 
+    async function fetchFileList(signal) {
+        const result = await withAuthRetry(key => fetch('/list', {
+            headers: { 'X-Secret-Key': key },
+            signal,
+        }));
+        if (result.cancelled) return result;
+        if (!result.response.ok) {
+            throw new Error('服务器返回 ' + result.response.status);
+        }
+        const data = await result.response.json();
+        if (!data || !Array.isArray(data.files)) {
+            throw new Error('文件列表格式无效');
+        }
+        return { key: result.key, files: data.files };
+    }
+
     async function refreshList(options) {
         const notify = options && options.notify;
         const sequence = ++refreshSequence;
@@ -45,20 +63,9 @@ window.FSFiles = (function () {
         FSUI.setRefreshBusy(true);
         FSUI.setFileViewState('loading', '正在读取文件', '正在连接服务器');
         try {
-            const result = await withAuthRetry(key => fetch('/list', {
-                headers: { 'X-Secret-Key': key },
-                signal: controller.signal,
-            }));
+            const result = await fetchFileList(controller.signal);
             if (result.cancelled || sequence !== refreshSequence) return;
-            if (!result.response.ok) {
-                throw new Error('服务器返回 ' + result.response.status);
-            }
-            const data = await result.response.json();
-            if (!data || !Array.isArray(data.files)) {
-                throw new Error('文件列表格式无效');
-            }
-            if (sequence !== refreshSequence) return;
-            fileCache = data.files;
+            fileCache = result.files;
             FSUI.renderTableFromCache(fileCache);
             FSUI.setLastRefresh();
             if (notify) FSUI.showToast('文件列表已刷新', 'ok', 1800);
@@ -86,6 +93,7 @@ window.FSFiles = (function () {
             const form = new FormData();
             files.forEach(file => form.append('file', file));
             const xhr = new XMLHttpRequest();
+            activeUploadRequest = xhr;
             const startedAt = Date.now();
             let lastLoaded = 0;
             let lastTime = startedAt;
@@ -99,6 +107,9 @@ window.FSFiles = (function () {
                 xhr.onload = null;
                 xhr.onerror = null;
                 xhr.onabort = null;
+                if (activeUploadRequest === xhr) {
+                    activeUploadRequest = null;
+                }
                 resolve(result);
             }
 
@@ -136,6 +147,39 @@ window.FSFiles = (function () {
         });
     }
 
+    function cancelUpload() {
+        if (!uploadBusy) return;
+        uploadCancelRequested = true;
+        FSUI.setUploadStatus('idle', '正在取消上传', '请稍候');
+        if (activeUploadRequest) activeUploadRequest.abort();
+    }
+
+    async function prepareUpload(files) {
+        FSUI.setUploadStatus(
+            'uploading',
+            '正在检查同名文件',
+            '读取最新文件列表',
+        );
+        const latest = await fetchFileList();
+        if (latest.cancelled) {
+            return { cancelled: true, reason: 'auth' };
+        }
+        fileCache = latest.files;
+        FSUI.renderTableFromCache(fileCache);
+        FSUI.setLastRefresh();
+        if (uploadCancelRequested) {
+            return { cancelled: true, reason: 'cancel' };
+        }
+        const conflicts = FSUtils.findUploadConflicts(files, fileCache);
+        if (conflicts.length) {
+            const confirmed = await FSUI.confirmOverwrite(conflicts);
+            if (!confirmed) {
+                return { cancelled: true, reason: 'conflict' };
+            }
+        }
+        return latest;
+    }
+
     async function upload() {
         if (uploadBusy) return;
         const files = FSUI.getUploadFiles();
@@ -145,38 +189,84 @@ window.FSFiles = (function () {
         }
 
         uploadBusy = true;
+        uploadCancelRequested = false;
         FSUI.setUploadBusy(true);
         try {
-            const result = await withAuthRetry(
-                key => createUploadRequest(files, key),
-            );
-            if (result.cancelled) {
-                FSUI.setUploadStatus('idle', '上传已取消', '需要访问密钥');
+            let authRestarts = 0;
+            while (authRestarts <= 1) {
+                let prepared;
+                try {
+                    prepared = await prepareUpload(files);
+                } catch (error) {
+                    FSUI.setUploadStatus(
+                        'error',
+                        '无法检查同名文件',
+                        error.message || '请检查服务器连接',
+                    );
+                    FSUI.showToast(
+                        '上传前检查失败，请重试',
+                        'err',
+                    );
+                    return;
+                }
+                if (prepared.cancelled || uploadCancelRequested) {
+                    const conflictCancelled =
+                        prepared.reason === 'conflict';
+                    FSUI.setUploadStatus(
+                        'idle',
+                        conflictCancelled ? '已取消覆盖' : '上传已取消',
+                        '已保留所选文件',
+                    );
+                    return;
+                }
+
+                const response = await createUploadRequest(
+                    files,
+                    prepared.key,
+                );
+                if (response.aborted || uploadCancelRequested) {
+                    FSUI.setUploadStatus(
+                        'idle',
+                        '上传已取消',
+                        '已保留所选文件',
+                    );
+                    return;
+                }
+                if (response.networkError) {
+                    FSUI.setUploadStatus(
+                        'error',
+                        '网络连接失败',
+                        '请检查服务器连接',
+                    );
+                    FSUI.showToast('上传失败：网络连接异常', 'err');
+                    return;
+                }
+                if (response.status === 200) {
+                    FSUI.setUploadProgress(
+                        100,
+                        response.speedText,
+                        '传输完成',
+                    );
+                    FSUI.setUploadStatus('success', '上传完成', '传输完成');
+                    FSUI.clearUploadSelection();
+                    FSUI.showToast('文件上传成功');
+                    await refreshList();
+                    return;
+                }
+                if (response.status === 401 && authRestarts === 0) {
+                    FSAuth.resetKey({ silent: true });
+                    authRestarts++;
+                    continue;
+                }
+                const detail = response.status === 401
+                    ? '访问密钥仍然无效'
+                    : '服务器返回 ' + response.status;
+                FSUI.setUploadStatus('error', '上传失败', detail);
+                FSUI.showToast('上传失败：' + detail, 'err');
                 return;
             }
-            const response = result.response;
-            if (response.networkError) {
-                FSUI.setUploadStatus('error', '网络连接失败', '请检查服务器连接');
-                FSUI.showToast('上传失败：网络连接异常', 'err');
-                return;
-            }
-            if (response.aborted) {
-                FSUI.setUploadStatus('error', '上传已中止', '可重新开始上传');
-                return;
-            }
-            if (response.status === 200) {
-                FSUI.setUploadProgress(100, response.speedText, '传输完成');
-                FSUI.setUploadStatus('success', '上传完成', '传输完成');
-                FSUI.showToast('文件上传成功');
-                await refreshList();
-                return;
-            }
-            const detail = response.status === 401
-                ? '访问密钥仍然无效'
-                : '服务器返回 ' + response.status;
-            FSUI.setUploadStatus('error', '上传失败', detail);
-            FSUI.showToast('上传失败：' + detail, 'err');
         } finally {
+            activeUploadRequest = null;
             uploadBusy = false;
             FSUI.setUploadBusy(false);
         }
@@ -239,15 +329,20 @@ window.FSFiles = (function () {
 
     FSUI.bindActions({
         upload,
+        cancelUpload,
         refresh: refreshList,
         download: downloadSelected,
         getFiles: () => fileCache,
+    });
+    window.addEventListener('fs:key-reset', () => {
+        if (window.ENCRYPTED) fileCache = [];
     });
     window.addEventListener('DOMContentLoaded', () => refreshList());
 
     return {
         refreshList,
         upload,
+        cancelUpload,
         downloadSelected,
         get fileCache() { return fileCache; },
     };

@@ -31,6 +31,12 @@ test('formatSize handles boundaries and invalid input', () => {
     assert.equal(utils.formatSize(Number.NaN), '0.00 B');
 });
 
+test('formatModified formats timestamps and rejects invalid values', () => {
+    assert.notEqual(utils.formatModified(0), '—');
+    assert.equal(utils.formatModified(-1), '—');
+    assert.equal(utils.formatModified('not-a-date'), '—');
+});
+
 test('extIcon maps known types and shortens unknown extensions', () => {
     // Matching is case-insensitive and uses the last extension segment.
     assert.equal(utils.extIcon('photo.JPEG'), 'IMG');
@@ -69,6 +75,42 @@ test('filterFiles is case-insensitive and does not mutate input', () => {
     // sorting or splicing the returned visible-file array.
     assert.notEqual(utils.filterFiles(files, ''), files);
     assert.equal(files.length, 3);
+});
+
+test('sortFiles supports all columns without mutating input', () => {
+    const files = [
+        { name: 'file10.txt', size: 20, modified: 100 },
+        { name: 'file2.txt', size: 20, modified: 300 },
+        { name: 'alpha.txt', size: 30, modified: 200 },
+    ];
+    assert.deepEqual(
+        utils.sortFiles(files, 'name', 'asc').map(file => file.name),
+        ['alpha.txt', 'file2.txt', 'file10.txt'],
+    );
+    assert.deepEqual(
+        utils.sortFiles(files, 'size', 'desc').map(file => file.name),
+        ['alpha.txt', 'file2.txt', 'file10.txt'],
+    );
+    assert.deepEqual(
+        utils.sortFiles(files, 'modified', 'desc').map(file => file.name),
+        ['file2.txt', 'alpha.txt', 'file10.txt'],
+    );
+    assert.equal(files[0].name, 'file10.txt');
+});
+
+test('findUploadConflicts catches existing and batch duplicates', () => {
+    const selected = [
+        { name: 'report.pdf' },
+        { name: 'new.txt' },
+        { name: 'DUP.txt' },
+        { name: 'dup.TXT' },
+    ];
+    const existing = [{ name: 'Report.PDF' }, { name: 'other.bin' }];
+    assert.deepEqual(
+        utils.findUploadConflicts(selected, existing),
+        ['report.pdf', 'DUP.txt'],
+    );
+    assert.deepEqual(utils.findUploadConflicts([], existing), []);
 });
 
 test('selection helpers retain hidden selections and reconcile removals', () => {

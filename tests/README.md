@@ -38,7 +38,7 @@ python -m unittest tests.test_server.ServerTestCase.test_download_head_and_range
 | 默认、classic、加密首页 | 页面选择、`ENCRYPTED` 注入、`no-store`、响应长度 |
 | 访问日志 | 下载 URL 的 `key` 脱敏，非字符串参数保持原值 |
 | 静态资源 | MIME/安全头、ETag、304、明文及编码路径越界 |
-| 文件列表与认证 | 无密钥、错误密钥、正确密钥、UTF-8 文件名 |
+| 文件列表与认证 | 无密钥、错误密钥、正确密钥、UTF-8 文件名、大小与毫秒修改时间 |
 | HEAD 与 Range | 固定范围、开放范围、后缀范围、结束位置截断、400、416 |
 | 上传 | 多文件、同名覆盖、1 MiB 分块参数、原子替换、临时文件清理 |
 | 非法上传 | 错误 Content-Type、缺少 `file` 字段 |
@@ -56,6 +56,8 @@ python -m unittest tests.test_server.ServerTestCase.test_download_head_and_range
 - 已知和未知扩展名的文件类型标签。
 - 主题模式及 7 种主题色白名单。
 - 忽略大小写的文件筛选和输入数组不可变性。
+- 名称、大小、修改时间排序，稳定兜底顺序和输入数组不可变性。
+- 修改时间格式化及已有文件、上传批次内的忽略大小写重名检测。
 - 跨筛选选择保留、失效文件剔除、当前结果全选/反选语义。
 
 ## 新增测试约定

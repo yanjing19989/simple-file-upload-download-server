@@ -10,6 +10,11 @@ const FSUtils = (function () {
         ['SRC', new Set(['py', 'js', 'ts', 'java', 'c', 'cpp', 'go', 'rs', 'sh', 'bat'])],
     ];
     const THEME_MODES = new Set(['light', 'dark', 'auto']);
+    const SORT_FIELDS = new Set(['name', 'size', 'modified']);
+    const FILE_NAME_COLLATOR = new Intl.Collator(undefined, {
+        numeric: true,
+        sensitivity: 'base',
+    });
     const THEME_PRESETS = {
         '#2563eb': {
             light: { primary: '#2563eb', hover: '#1d4ed8', contrast: '#ffffff' },
@@ -65,6 +70,20 @@ const FSUtils = (function () {
         return value.toFixed(2) + ' ' + units[unit];
     }
 
+    function formatModified(value) {
+        const timestamp = Number(value);
+        if (!Number.isFinite(timestamp) || timestamp < 0) return '—';
+        const date = new Date(timestamp);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleString([], {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    }
+
     function extIcon(name) {
         const value = String(name || '');
         const extension = value.includes('.')
@@ -104,6 +123,61 @@ const FSUtils = (function () {
         );
     }
 
+    function sortFiles(files, field = 'modified', direction = 'desc') {
+        const source = Array.isArray(files) ? files.slice() : [];
+        const selectedField = SORT_FIELDS.has(field)
+            ? field
+            : 'modified';
+        const multiplier = direction === 'asc' ? 1 : -1;
+
+        return source.sort((left, right) => {
+            const leftName = String(left.name || '');
+            const rightName = String(right.name || '');
+            let primary;
+            if (selectedField === 'name') {
+                primary = FILE_NAME_COLLATOR.compare(leftName, rightName);
+            } else {
+                const leftValue = Number(left[selectedField]);
+                const rightValue = Number(right[selectedField]);
+                primary = (Number.isFinite(leftValue) ? leftValue : 0) -
+                    (Number.isFinite(rightValue) ? rightValue : 0);
+            }
+            if (primary) return primary * multiplier;
+
+            const nameOrder = FILE_NAME_COLLATOR.compare(
+                leftName,
+                rightName,
+            );
+            if (nameOrder) return nameOrder;
+            if (leftName === rightName) return 0;
+            return leftName < rightName ? -1 : 1;
+        });
+    }
+
+    function findUploadConflicts(files, currentFiles) {
+        const existingNames = new Set(
+            (Array.isArray(currentFiles) ? currentFiles : [])
+                .map(file => String(file.name || '').toLowerCase())
+                .filter(Boolean)
+        );
+        const selectedNames = new Map();
+        const conflicts = new Map();
+        for (const file of Array.from(files || [])) {
+            const name = String(file && file.name || '');
+            const normalized = name.toLowerCase();
+            if (!normalized) continue;
+            if (existingNames.has(normalized)) {
+                conflicts.set(normalized, name);
+            }
+            if (selectedNames.has(normalized)) {
+                conflicts.set(normalized, selectedNames.get(normalized));
+            } else {
+                selectedNames.set(normalized, name);
+            }
+        }
+        return [...conflicts.values()];
+    }
+
     function retainAvailableSelection(selectedNames, files) {
         const available = new Set(
             (Array.isArray(files) ? files : []).map(file => file.name)
@@ -136,12 +210,15 @@ const FSUtils = (function () {
     return {
         escapeHtml,
         formatSize,
+        formatModified,
         extIcon,
         normalizeThemeMode,
         normalizeThemeColor,
         getThemePreset,
         getThemeColors,
         filterFiles,
+        sortFiles,
+        findUploadConflicts,
         retainAvailableSelection,
         updateVisibleSelection,
         debounce,

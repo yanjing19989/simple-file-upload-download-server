@@ -356,9 +356,11 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                     if resolved.parent != self.storage_root:
                         continue
                     if resolved.is_file():
+                        metadata = resolved.stat()
                         files.append({
                             'name': entry.name,
-                            'size': resolved.stat().st_size,
+                            'size': metadata.st_size,
+                            'modified': metadata.st_mtime_ns // 1_000_000,
                         })
                 except OSError:
                     continue
