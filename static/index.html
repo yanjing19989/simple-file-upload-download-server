@@ -3,83 +3,92 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>文件中心</title>
 <link rel="icon" href="data:,">
+<script>
+try {
+    const mode = localStorage.getItem('fs_theme_pref') || 'auto';
+    if (mode === 'dark' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark-mode');
+} catch (e) {}
+window.ENCRYPTED = {encrypted_status};
+</script>
 <link rel="stylesheet" href="/static/style.css">
-<script>window.ENCRYPTED = {encrypted_status};</script>
 </head>
 <body>
-<main>
-    <header>
-        <div class="logo">文件中心 <span class="badge">v1</span></div>
-        <div class="actions">
-            <button class="btn-outline toggle-theme" id="themeBtn" title="切换主题">🌗</button>
-            <!-- 主题色按钮（主按钮 + 子菜单） -->
-            <div style="position:relative;">
-                <button class="btn-outline" id="themeColorBtn" title="主题色">🎨</button>
-                <div id="themePaletteMenu" style="display:none; position:absolute; right:0; margin-top:10px; background:var(--card-bg); border:var(--border); padding:8px; border-radius:10px; box-shadow:var(--shadow);">
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-start;">
-                        <button class="palette-btn" data-color="#6366f1" title="靛蓝经典"></button>
-                        <button class="palette-btn" data-color="#8b5cf6" title="紫罗兰"></button>
-                        <button class="palette-btn" data-color="#06b6d4" title="青蓝"></button>
-                        <button class="palette-btn" data-color="#10b981" title="翡翠绿"></button>
-                        <button class="palette-btn" data-color="#f59e0b" title="琥珀金"></button>
-                        <button class="palette-btn" data-color="#ef4444" title="珊瑚红"></button>
-                        <button class="palette-btn" data-color="#ec4899" title="玫瑰粉"></button>
-                        <!-- 恢复默认主题按钮 -->
-                        <button class="palette-btn reset-btn" title="恢复默认主题">C</button>
+<a class="skip-link" href="#workspace">跳到主要内容</a>
+<main class="app-shell">
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="文件中心首页">
+            <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v7A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-9Z"/><path d="M8.5 13h7M12 9.5v7"/></svg></span>
+            <span><strong>文件中心</strong><small>轻量、安全地传输文件</small></span>
+        </a>
+        <div class="topbar-actions">
+            <span class="security-pill" id="securityPill"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.5 12 1.7 1.7 3.6-3.9"/></svg><span id="encState">连接开放</span></span>
+            <div class="appearance-menu">
+                <button class="icon-button" id="appearanceBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="appearancePanel" title="外观设置"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-1 1.4-2-.6-1 .1-2.2 1.3-2.2H17a4 4 0 0 0 4-4C21 7.4 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="9.5" cy="7.5" r="1"/><circle cx="14" cy="7" r="1"/><circle cx="17" cy="10" r="1"/></svg><span class="sr-only">外观设置</span></button>
+                <div class="popover" id="appearancePanel" role="dialog" aria-label="外观设置" hidden>
+                    <div class="popover-heading"><div><strong>外观</strong><span>选择界面模式和主题色</span></div><button class="mini-icon-button" id="closeAppearanceBtn" type="button" aria-label="关闭外观设置">×</button></div>
+                    <span class="setting-label">显示模式</span>
+                    <div class="theme-options" role="group" aria-label="显示模式"><button type="button" data-theme-mode="light">浅色</button><button type="button" data-theme-mode="dark">深色</button><button type="button" data-theme-mode="auto">跟随系统</button></div>
+                    <span class="setting-label">主题色</span>
+                    <div class="palette" role="group" aria-label="主题色">
+                        <button class="palette-btn" type="button" data-color="#4f46e5" aria-label="靛蓝"></button><button class="palette-btn" type="button" data-color="#7c3aed" aria-label="紫罗兰"></button><button class="palette-btn" type="button" data-color="#0891b2" aria-label="青蓝"></button><button class="palette-btn" type="button" data-color="#059669" aria-label="翡翠绿"></button><button class="palette-btn" type="button" data-color="#d97706" aria-label="琥珀金"></button><button class="palette-btn" type="button" data-color="#dc2626" aria-label="珊瑚红"></button><button class="palette-btn" type="button" data-color="#db2777" aria-label="玫瑰粉"></button>
                     </div>
+                    <button class="text-button reset-theme" id="resetThemeColorBtn" type="button">恢复默认主题色</button>
                 </div>
             </div>
-            <button class="btn-outline" id="resetKeyBtn" style="display:none;">重置密钥</button>
-            <button class="btn-ghost" id="aboutBtn">关于</button>
+            <button class="icon-button" id="resetKeyBtn" type="button" title="重置访问密钥" style="display:none"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 7a5 5 0 1 0-4.7 6.7L12 15.5V18h2.5v2H17v-2h2v-3l-4.3-4.3A5 5 0 0 0 15 7Z"/><circle cx="10" cy="7" r="1"/></svg><span class="sr-only">重置访问密钥</span></button>
+            <button class="icon-button" id="aboutBtn" type="button" title="关于文件中心"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span class="sr-only">关于文件中心</span></button>
         </div>
     </header>
-    <section class="grid">
-        <div class="card">
-            <h2>上传文件</h2>
-            <div class="drop-zone" id="dropZone">
-                <p style="font-size:1rem;margin-bottom:12px;"><strong>拖拽文件</strong> 或 <label for="fileInput" id="selectLabel" class="btn btn-primary">浏览选择</label></p>
-                <p style="font-size:.8rem; letter-spacing:.5px;">支持多文件，大小显示与进度跟踪</p>
+    <section class="workspace" id="workspace" aria-label="文件工作台">
+        <article class="panel upload-panel">
+            <div class="panel-heading"><div><span class="eyebrow">发送文件</span><h1>上传到当前目录</h1><p>支持同时选择多个文件</p></div><span class="panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg></span></div>
+            <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-controls="fileInput" aria-describedby="dropHint selectedList">
                 <input type="file" id="fileInput" multiple>
-                <!-- 已选择文件信息 -->
-                <div id="selectedList" style="margin-top:12px;font-size:.85rem;color:var(--muted);">未选择文件</div>
-                <div class="meta-line" style="margin-top:22px;"><span>状态</span><span id="status">待命</span></div>
-                <div class="progress-wrap" id="progressWrap">
-                    <progress id="progressBar" value="0" max="100"></progress>
-                    <div class="meta-line"><span id="speedLine">0 KB/s</span><span id="etaLine"></span></div>
-                </div>
+                <div class="drop-illustration" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 15.5A3.5 3.5 0 0 0 7.5 19h9a3.5 3.5 0 0 0 .6-6.9A5.5 5.5 0 0 0 6.5 10.5v.2A3.5 3.5 0 0 0 4 15.5Z"/><path d="M12 16V9m0 0-2.5 2.5M12 9l2.5 2.5"/></svg></div>
+                <strong>拖放文件到这里</strong><span id="dropHint">或从设备中浏览选择</span><label class="button secondary-button" id="selectLabel" for="fileInput">选择文件</label>
             </div>
-            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:24px;">
-                <button class="btn-primary" id="uploadBtn">开始上传</button>
-                <button class="btn-outline" id="clearBtn">清空进度</button>
+            <div class="selected-summary" id="selectedList" aria-live="polite">尚未选择文件</div>
+            <div class="upload-status is-idle" id="uploadStatus" aria-live="polite">
+                <div class="status-heading"><span><i class="status-dot" aria-hidden="true"></i><strong id="status">等待上传</strong></span><span id="progressPercent">0%</span></div>
+                <div class="progress-wrap" id="progressWrap"><progress id="progressBar" value="0" max="100">0%</progress></div>
+                <div class="status-meta"><span id="speedLine">0 KB/s</span><span id="etaLine">准备就绪</span></div>
             </div>
-        </div>
-        <div class="card" style="position:relative;">
-            <h2 style="display:flex;align-items:center;gap:8px;">文件列表 <span id="fileCount" class="count"></span></h2>
-            <div class="toolbar">
-                <input id="search" placeholder="搜索文件..." autocomplete="off">
-                <button class="btn-outline" id="selectAllBtn">全选</button>
-                <button class="btn-outline" id="invertBtn">反选</button>
-                <button class="btn-outline" id="refreshBtn">刷新</button>
-                <button class="btn-primary" id="downloadSelBtn">下载所选</button>
+            <div class="panel-actions"><button class="button primary-button" id="uploadBtn" type="button" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg><span>开始上传</span></button><button class="button ghost-button" id="clearBtn" type="button">清空进度</button></div>
+        </article>
+        <article class="panel files-panel">
+            <div class="panel-heading files-heading"><div><span class="eyebrow">接收文件</span><h1>当前文件</h1><p><span id="fileCount">正在读取…</span></p></div><button class="button secondary-button refresh-button" id="refreshBtn" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg><span>刷新</span></button></div>
+            <div class="file-toolbar">
+                <label class="search-box" for="search"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg><input id="search" type="search" placeholder="搜索文件名" autocomplete="off"><span class="sr-only">搜索文件名</span></label>
+                <div class="selection-actions" role="group" aria-label="批量选择"><button class="button ghost-button compact-button" id="selectAllBtn" type="button">全选</button><button class="button ghost-button compact-button" id="invertBtn" type="button">反选</button></div>
             </div>
-            <div class="table-container">
-                <table class="files-table" id="filesTable">
-                    <thead><tr><th style="width:40px;"></th><th>文件名</th><th style="width:110px;">大小</th></tr></thead>
-                    <tbody id="fileTableBody"></tbody>
-                </table>
+            <div class="table-container"><table class="files-table" id="filesTable"><thead><tr><th class="check-column"><span class="sr-only">选择</span></th><th>文件名</th><th class="size-column">大小</th></tr></thead><tbody id="fileTableBody"><tr class="state-row"><td colspan="3"><span class="loading-spinner" aria-hidden="true"></span><strong>正在读取文件</strong><small>请稍候</small></td></tr></tbody></table></div>
+            <div class="files-footer">
+                <div class="selection-summary"><strong id="selectedCount">0</strong><span>个文件已选</span><small id="lastRefresh">尚未刷新</small></div>
+                <button class="button primary-button download-button" id="downloadSelBtn" type="button" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4v12m0 0 4.5-4.5M12 16l-4.5-4.5"/><path d="M5 20h14"/></svg><span>下载所选</span></button>
             </div>
-            <div class="meta-line" style="margin-top:14px;"><span id="selectedCount">0 已选</span><span id="lastRefresh">--</span></div>
-        </div>
+        </article>
     </section>
-    <footer>界面增强版 · <span id="encState"></span></footer>
+    <footer class="app-footer"><span>Simple File Server</span><span aria-hidden="true">·</span><span>文件只保存在服务器当前目录</span></footer>
 </main>
-<div class="toast-stack" id="toastStack"></div>
-<script src="/static/utils.js"></script>
-<script src="/static/theme.js"></script>
-<script src="/static/auth.js"></script>
-<script src="/static/ui.js"></script>
-<script src="/static/files.js"></script>
+<div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+<div class="modal-backdrop" id="keyModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="keyModalTitle" aria-describedby="keyModalDesc">
+        <span class="modal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg></span>
+        <h2 id="keyModalTitle">输入访问密钥</h2><p id="keyModalDesc">此文件中心已启用保护，请输入服务器控制台显示的 4 位密钥。</p>
+        <form id="keyForm"><label for="keyInput">访问密钥</label><input id="keyInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="32" placeholder="请输入密钥"><span class="field-error" id="keyError" role="alert"></span><div class="modal-actions"><button class="button ghost-button" id="cancelKeyBtn" type="button">取消</button><button class="button primary-button" type="submit">继续</button></div></form>
+    </section>
+</div>
+<div class="modal-backdrop" id="aboutModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle">
+        <button class="modal-close" type="button" data-close-modal aria-label="关闭">×</button>
+        <span class="modal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v7A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-9Z"/></svg></span>
+        <h2 id="aboutModalTitle">文件中心</h2><p>一个用于局域网临时上传与下载文件的轻量工具。支持多文件、断点续传、主题切换和可选访问密钥。</p>
+        <div class="about-note">所有文件操作均通过当前服务器完成，本页面不会连接第三方服务。</div><button class="button primary-button full-button" type="button" data-close-modal>知道了</button>
+    </section>
+</div>
+<script src="/static/utils.js"></script><script src="/static/theme.js"></script><script src="/static/auth.js"></script><script src="/static/ui.js"></script><script src="/static/files.js"></script>
 </body>
 </html>

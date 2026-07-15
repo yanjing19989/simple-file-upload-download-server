@@ -4,14 +4,12 @@
 
 ---
 
-![界面展示](./picture/light-mode.jpg)
-
-![界面展示](./picture/dark-mode.jpg)
+默认界面采用现代极简的双栏工作台，并针对桌面与移动设备提供自适应布局。
 
 ## 中文说明
 
 ### 简介
-一个基于 Python 内置 `http.server` 的极简文件上传/下载小服务，单文件运行，带前端页面（进度条、深色模式自适应）与可选的一次性密钥访问控制。
+一个基于 Python 内置 `http.server` 的极简文件上传/下载小服务，单文件运行，带现代响应式前端、上传进度跟踪与可选的一次性密钥访问控制。
 
 - 入口文件：`file.py`
 - 运行环境：Python 3.8+
@@ -22,7 +20,7 @@
 - 下载文件（浏览器或命令行），支持断点续传与 HTTP Range 请求
 - 文件列表（名称 + 大小），支持 HEAD 请求获取文件元数据
 - 进度条与智能上传速度显示（小文件使用平均速度）
-- 增强型现代界面（卡片式布局、优化的视觉效果）
+- 现代极简文件工作台（桌面双栏、移动端卡片列表）
 - 拖拽上传支持
 - 手动主题切换（浅色/深色/自动）
 - 主题色彩定制（7种预设颜色和重置选项）
@@ -67,11 +65,11 @@
 
 ### 前端使用
 **新界面（默认）：**
-- 上传：拖拽文件到上传区域或点击"浏览选择"，支持多文件上传，实时显示上传进度、速度和预计完成时间
-- 列表：自动加载文件列表，支持搜索过滤、全选/反选、批量下载
-- 主题：点击右上角主题按钮切换浅色/深色/自动模式
-- 主题色：点击调色板按钮（🎨）选择预设颜色或重置为默认主题
-- 下载：选中文件后点击"下载所选"，支持批量下载和断点续传
+- 上传：拖拽文件到上传区域或点击“选择文件”，支持多文件上传，并实时显示进度、速度和预计完成时间
+- 列表：自动加载文件，支持搜索、全选/反选和保留筛选前的选择状态
+- 外观：点击右上角调色板按钮，选择浅色、深色或跟随系统模式，并可切换 7 种主题色
+- 下载：选中文件后点击“下载所选”，支持顺序批量下载和断点续传
+- 密钥：加密模式使用页面内弹窗输入密钥；密钥仅保留在当前页面内存中，可通过右上角按钮重置
 
 **经典界面（`-c` 启用）：**
 - 上传：选择文件后点击"上传"，如启用加密模式会弹窗输入密钥
@@ -90,7 +88,7 @@
 
 ### 加密模式说明
 - 启用 `-e` 后，所有接口校验 `X-Secret-Key`。
-- 前端上传/刷新会弹窗输入密钥。
+- 前端使用页面内弹窗输入密钥，错误时可直接重试；密钥不会写入本地存储。
 
 ### 安全与注意事项
 - 仅用于局域网/临时传输，无权限隔离和传输加密
@@ -142,7 +140,7 @@
 ## English Guide
 
 ### Introduction
-A tiny file upload/download server built on Python's built-in `http.server`. Single-file runnable, includes a minimal frontend (progress bar, auto dark mode) and an optional one-time key access control.
+A tiny file upload/download server built on Python's built-in `http.server`. It is single-file runnable and includes a modern responsive frontend, upload progress tracking, and optional one-time key access control.
 
 - Entry: `file.py`
 - Runtime: Python 3.8+
@@ -153,7 +151,7 @@ A tiny file upload/download server built on Python's built-in `http.server`. Sin
 - File download (browser or CLI), supports resuming with HTTP Range requests
 - File listing (name + size), supports HEAD requests for file metadata
 - Upload progress with intelligent speed display (average speed for small files)
-- Enhanced modern interface (card layout with optimized visual effects)
+- Modern minimalist workspace (two columns on desktop, file cards on mobile)
 - Drag and drop file upload support
 - Manual theme switching (light/dark/auto)
 - Theme color customization (7 preset colors and reset option)
@@ -198,11 +196,11 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 
 ### Frontend Usage
 **Enhanced Interface (Default):**
-- Upload: Drag files to upload area or click "Browse" button. Supports multi-file upload with real-time progress, speed, and ETA display
-- List: Auto-loads file list with search filtering, select all/invert selection, and bulk download support
-- Theme: Click theme button in top-right corner to switch between light/dark/auto modes
-- Color Theme: Click color palette button (🎨) to select preset colors or reset to default theme
-- Download: Select files and click "Download Selected" for bulk downloads, supports resuming
+- Upload: Drag files into the upload area or click "Select Files". Multi-file uploads include progress, speed, and ETA
+- List: Files load automatically with search, select all/invert selection, and selection preserved across filters
+- Appearance: Use the palette button in the top-right to choose light, dark, or system mode and one of seven accent colors
+- Download: Select files and click "Download Selected" for sequential bulk downloads with resume support
+- Key: Encrypted mode uses an in-page key dialog. The key stays in memory only and can be reset from the top-right action
 
 **Classic Interface (`-c` enabled):**
 - Upload: Select files, click Upload. If encrypted mode is on, the page prompts for the key
@@ -221,11 +219,8 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 
 ### Encrypted Mode Notes
 - With `-e`, the server validates `X-Secret-Key` for all endpoints.
-- The frontend prompts for the key for Upload and List.
-
-**Workarounds:**
-- Temporarily avoid encrypted mode for downloads; or
-- Use a CLI tool that can add headers, e.g.:
+- The frontend requests the key in an in-page dialog and allows immediate retry after an invalid key.
+- The key is never written to local storage; resetting it requires the next protected action to unlock the page again.
 
 ### Security Notes
 - Intended for LAN/temporary use; no auth roles or auditing.
