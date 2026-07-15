@@ -300,9 +300,21 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
         filename = 'classic.html' if self._is_classic() else 'index.html'
         path = self.static_root / filename
         try:
+            upload_notice = ''
+            if self._is_classic():
+                params = urllib.parse.parse_qs(
+                    self._parsed_url().query, keep_blank_values=True
+                )
+                if params.get('upload', [''])[0] == 'success':
+                    upload_notice = (
+                        '<p class="notice">上传成功，文件列表已刷新。</p>'
+                    )
             payload = path.read_text(encoding='utf-8').replace(
                 '{encrypted_status}',
                 'true' if self._is_encrypted() else 'false',
+            ).replace(
+                '{upload_notice}',
+                upload_notice,
             ).encode('utf-8')
         except OSError as error:
             self.log_error('Index file error: %s', error)
@@ -358,10 +370,15 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
 
             content_length = max(0, end - start + 1)
             quoted_name = urllib.parse.quote(path.name, safe='')
+            fallback_name = re.sub(r'[^\x20-\x7e]', '_', path.name)
+            fallback_name = fallback_name.replace('\\', '_').replace('"', '_')
+            if not fallback_name:
+                fallback_name = 'download'
             headers = {
                 'Accept-Ranges': 'bytes',
                 'Content-Disposition': (
-                    "attachment; filename*=UTF-8''" + quoted_name
+                    f'attachment; filename="{fallback_name}"; '
+                    "filename*=UTF-8''" + quoted_name
                 ),
             }
             if status == 206:
@@ -491,6 +508,11 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.send_error(400, 'Missing file field')
                 return
 
+            classic_response = (
+                self._is_classic() and
+                form.getfirst('response', '') == 'classic'
+            )
+
             with tempfile.TemporaryDirectory(
                 prefix='.sfs-upload-', dir=upload_directory
             ) as temporary_directory:
@@ -523,7 +545,13 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_error(500, 'Unable to save upload')
             return
 
-        self._send_bytes(200, b'OK')
+        if classic_response:
+            self._send_bytes(
+                303,
+                extra_headers={'Location': '/?upload=success'},
+            )
+        else:
+            self._send_bytes(200, b'OK')
 
     def do_GET(self):
         path = self._parsed_url().path
@@ -597,13 +625,14 @@ if __name__ == '__main__':
         default=80,
         help='Port to run the server on (default: 80)',
     )
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
         '-e',
         '--encrypted',
         action='store_true',
         help='Enable encryption mode and enter a one-time key to access',
     )
-    parser.add_argument(
+    mode_group.add_argument(
         '-c',
         '--classic',
         action='store_true',

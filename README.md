@@ -31,7 +31,7 @@
 - 实时速度与预计完成时间显示
 - 响应式设计，支持移动设备
 - 可选加密模式：一次性 4 位密钥（请求头 `X-Secret-Key`）
-- 经典界面模式（通过 `-c` 参数启用）
+- 零依赖经典界面模式（通过 `-c` 参数启用，兼容 IE8 标准模式）
 - 终端显示服务器 URL 和二维码（可选，需要 qrcode 模块）
 
 ### 快速开始
@@ -65,6 +65,7 @@
 - `-c, --classic` 启用经典模式，使用传统界面
 
 加密模式下，控制台会显示 4 位密钥，客户端需在请求头携带 `X-Secret-Key`。
+`--encrypted` 与 `--classic` 互斥，不能同时启用；经典模式仅用于无加密的局域网环境。
 
 ### 前端使用
 **新界面（默认）：**
@@ -75,11 +76,11 @@
 - 密钥：加密模式使用页面内弹窗输入密钥；密钥仅保留在当前页面内存中，可通过右上角按钮重置
 
 **经典界面（`-c` 启用）：**
-- 上传：选择文件后点击"上传"，如启用加密模式会弹窗输入密钥
-- 列表：点击"刷新列表"获取服务器当前目录文件
-- 下载：选中文件后点击"下载所选"
+- 上传：通过浏览器原生表单一次上传一个文件；上传成功后返回经典首页，同名文件会直接覆盖
+- 列表：页面打开时自动读取根目录文件，也可点击“刷新列表”重新读取
+- 下载：点击文件名直接下载，不使用批量下载或弹窗
 
-经典界面保持根目录扁平文件模式，不显示或进入文件夹。
+经典界面不加载第三方资源或 polyfill，使用 ES3、同源 XHR 和基础 CSS，支持启用 JavaScript 的 IE8 标准模式。它保持根目录扁平文件模式，不显示或进入文件夹，也不提供加密、上传进度、多文件上传、主题或批量操作。
 
 > 文件夹需预先存在于服务器共享目录中；当前不支持上传整个文件夹、新建文件夹或将文件夹打包下载。搜索和批量选择仅作用于当前层。
 
@@ -91,7 +92,7 @@
 - `GET /list?path=<relative-directory>` 列出指定目录的当前层内容，返回 `path`、`directories` 和 `files`；省略 `path` 表示根目录，可选 `X-Secret-Key`
 - `GET /download?file=<relative-file-path>` 下载共享根目录内的指定文件，支持 HTTP Range 请求断点续传，可选 `X-Secret-Key`
 - `HEAD /download?file=<relative-file-path>` 获取文件元数据（大小、类型、Range 支持），不下载文件内容，可选 `X-Secret-Key`
-- `POST /upload?path=<relative-directory>` 上传文件到指定已有目录（multipart/form-data，字段名 `file`）；省略 `path` 表示根目录，可选 `X-Secret-Key`
+- `POST /upload?path=<relative-directory>` 上传文件到指定已有目录（multipart/form-data，字段名 `file`）；省略 `path` 表示根目录，可选 `X-Secret-Key`。经典表单额外发送 `response=classic`，仅在经典模式上传成功时返回 `303` 到 `/?upload=success`；普通 API 上传仍返回 `200 OK`
 
 ### 加密模式说明
 - 启用 `-e` 后，所有接口校验 `X-Secret-Key`。
@@ -173,7 +174,7 @@ A tiny file upload/download server built on Python's built-in `http.server`. It 
 - Real-time speed and ETA display
 - Responsive design for mobile devices
 - Optional encrypted mode: one-time 4-digit key (via `X-Secret-Key` header)
-- Classic interface mode (enabled via `-c` flag)
+- Dependency-free classic interface mode (enabled via `-c`, supports IE8 standards mode)
 - Terminal displays server URL and QR code (optional, requires qrcode module)
 
 ### Quick Start
@@ -207,6 +208,7 @@ A tiny file upload/download server built on Python's built-in `http.server`. It 
 - `-c, --classic` Enable classic mode with traditional interface
 
 When encrypted mode is enabled, the program prints a one-time 4-digit key and requires clients to include it in the `X-Secret-Key` request header.
+`--encrypted` and `--classic` are mutually exclusive. Classic mode is intended for unencrypted local-network use only.
 
 ### Frontend Usage
 **Enhanced Interface (Default):**
@@ -217,11 +219,11 @@ When encrypted mode is enabled, the program prints a one-time 4-digit key and re
 - Key: Encrypted mode uses an in-page key dialog. The key stays in memory only and can be reset from the top-right action
 
 **Classic Interface (`-c` enabled):**
-- Upload: Select files, click Upload. If encrypted mode is on, the page prompts for the key
-- List: Click Refresh to fetch all files in the server's current directory
-- Download: Select files and click Download Selected to open downloads in new windows
+- Upload: Use the browser's native form to upload one file at a time. A successful upload returns to the classic homepage, and an existing file with the same name is overwritten
+- List: Files in the shared root load when the page opens and can be reloaded with Refresh
+- Download: Click a file name to download it directly, without batch downloads or popups
 
-The classic interface remains a flat root-file view and does not enter folders.
+The classic interface loads no third-party resources or polyfills and uses ES3, same-origin XHR, and basic CSS for IE8 standards mode. It remains a flat root-file view and does not provide encryption, folder navigation, progress tracking, multi-file uploads, themes, or batch operations.
 
 > Folders must already exist under the server's shared root. Uploading whole folders, creating folders, and packaged folder downloads are not supported. Search and bulk selection apply only to the current level.
 
@@ -233,11 +235,12 @@ The classic interface remains a flat root-file view and does not enter folders.
 - `GET /list?path=<relative-directory>` List one directory level and return `path`, `directories`, and `files`; omitting `path` selects the root, optional `X-Secret-Key`
 - `GET /download?file=<relative-file-path>` Download a file within the shared root with HTTP Range support, optional `X-Secret-Key`
 - `HEAD /download?file=<relative-file-path>` Get file metadata without downloading content, optional `X-Secret-Key`
-- `POST /upload?path=<relative-directory>` Upload multipart `file` fields to an existing directory; omitting `path` selects the root, optional `X-Secret-Key`
+- `POST /upload?path=<relative-directory>` Upload multipart `file` fields to an existing directory; omitting `path` selects the root, optional `X-Secret-Key`. The classic form also sends `response=classic`; only a successful classic-mode form upload returns `303` to `/?upload=success`, while normal API uploads continue to return `200 OK`
 
 ### Encrypted Mode Notes
 - With `-e`, the server validates `X-Secret-Key` for all endpoints.
 - The frontend requests the key in an in-page dialog and allows immediate retry after an invalid key.
+- Encrypted mode cannot be combined with classic mode; use the enhanced interface when `-e` is enabled.
 - The key is never written to local storage; resetting it requires the next protected action to unlock the page again.
 
 ### Security Notes

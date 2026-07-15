@@ -1,174 +1,245 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>文件上传与下载</title>
-    <style>
-        /* 主题色变量 */
-        :root {
-            --bg-color: #f2f2f2;
-            --container-bg: #fff;
-            --text-color: #000;
-            --btn-upload-bg: #007bff;
-            --btn-upload-hover: #0056b3;
-            --btn-download-bg: #28a745;
-            --btn-download-hover: #218838;
-            --btn-refresh-bg: #17a2b8;
-            --btn-refresh-hover: #117a8b;
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 20px 10px;
+            background: #f2f2f2;
+            color: #222222;
+            font-family: Arial, "Microsoft YaHei", sans-serif;
+            font-size: 16px;
         }
-        .dark-mode {
-            --bg-color: #1e1e1e;
-            --container-bg: #2e2e2e;
-            --text-color: #ddd;
-            --btn-upload-bg: #007bff;
-            --btn-upload-hover: #0056b3;
-            --btn-download-bg: #28a745;
-            --btn-download-hover: #218838;
-            --btn-refresh-bg: #17a2b8;
-            --btn-refresh-hover: #117a8b;
+        .container {
+            width: auto;
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #ffffff;
+            border: 1px solid #cccccc;
         }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: var(--bg-color); color: var(--text-color);}
-        .container {  background: var(--container-bg); color: var(--text-color); padding: 20px; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        button.btn-upload { background: var(--btn-upload-bg); }
-        button.btn-upload:hover { background: var(--btn-upload-hover); }
-        button.btn-download { background: var(--btn-download-bg); }
-        button.btn-download:hover { background: var(--btn-download-hover); }
-        button.btn-refresh { background: var(--btn-refresh-bg); }
-        button.btn-refresh:hover { background: var(--btn-refresh-hover); }
-        h1 { text-align: center; margin-bottom: 20px; font-size: 1.5rem;}
-        input[type=file] { width: 100%; margin-bottom: 15px; font-size: 1rem;}
-        button { padding: 10px; margin: 5px 0; width: 100%; font-size: 1rem; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-        .file-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
-        .file-list li { display: flex; align-items: center; margin-bottom: 5px; }
-        .file-checkbox { margin-right: 8px; }
-        @media (max-width: 480px) { .container { padding: 10px; } button { font-size: 1rem; } }
+        h1 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+            text-align: center;
+        }
+        h2 {
+            margin: 28px 0 12px 0;
+            font-size: 20px;
+        }
+        .file-input {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .button {
+            width: 100%;
+            margin: 5px 0;
+            padding: 9px 6px;
+            border: 1px solid #555555;
+            background: #eeeeee;
+            color: #111111;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .upload-button {
+            border-color: #0056b3;
+            background: #007bff;
+            color: #ffffff;
+        }
+        .refresh-button {
+            border-color: #117a8b;
+            background: #17a2b8;
+            color: #ffffff;
+        }
+        .hint, .status, .notice {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        .hint {
+            color: #555555;
+            font-size: 14px;
+        }
+        .status {
+            color: #555555;
+        }
+        .error {
+            color: #b00020;
+        }
+        .notice {
+            padding: 8px 10px;
+            border: 1px solid #8ac38a;
+            background: #eef9ee;
+            color: #176b17;
+        }
+        .file-table {
+            width: 100%;
+            margin: 8px 0 12px 0;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        .file-table th, .file-table td {
+            padding: 7px 5px;
+            border-bottom: 1px solid #dddddd;
+            text-align: left;
+            vertical-align: top;
+        }
+        .file-table .size-column {
+            width: 100px;
+            text-align: right;
+        }
+        .file-link {
+            color: #0056b3;
+            word-wrap: break-word;
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>上传文件</h1>
-    <input type="file" id="fileInput" multiple>
-    <button class="btn-upload" onclick="upload()">上传</button>
-    <progress id="progressBar" value="0" max="100" style="width:100%;display:none;margin-top:10px;"></progress>
-    <span id="status" style="display:block;text-align:center;margin-top:5px;"></span>
-    <h1>下载文件</h1>
-    <ul id="fileList" class="file-list"></ul>
-    <button class="btn-download" onclick="downloadSelected()">下载所选</button>
-    <button class="btn-refresh" onclick="refreshList()">刷新列表</button>
+    <h1>文件上传与下载</h1>
+    {upload_notice}
+
+    <h2>上传文件</h2>
+    <form id="uploadForm" method="post" action="/upload"
+          enctype="multipart/form-data" onsubmit="return validateUpload();">
+        <input type="hidden" name="response" value="classic">
+        <input class="file-input" type="file" id="fileInput" name="file">
+        <p class="hint">每次只能上传一个文件；同名文件会被直接覆盖。</p>
+        <input class="button upload-button" type="submit" value="上传">
+    </form>
+
+    <h2>下载文件</h2>
+    <p id="listStatus" class="status">正在读取文件列表……</p>
+    <table id="fileTable" class="file-table" style="display: none;">
+        <thead>
+        <tr>
+            <th>文件名</th>
+            <th class="size-column">大小</th>
+        </tr>
+        </thead>
+        <tbody id="fileList"></tbody>
+    </table>
+    <input class="button refresh-button" type="button" value="刷新列表"
+           onclick="refreshList();">
 </div>
-<script>
-
+<script type="text/javascript">
 function formatSize(bytes) {
-    const units = ['B','KB','MB','GB','TB'];
-    let i = 0;
-    while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
-    return bytes.toFixed(2) + ' ' + units[i];
-}
-
-window.ENCRYPTED = {encrypted_status};
-let globalKey = '';
-
-function getKey() {
-    if (!window.ENCRYPTED) {
-        return '0';
+    var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var value = parseFloat(bytes);
+    var index = 0;
+    if (isNaN(value) || value < 0) {
+        value = 0;
     }
-    if (!globalKey) {
-        globalKey = prompt('请输入密钥：');
+    while (value >= 1024 && index < units.length - 1) {
+        value = value / 1024;
+        index = index + 1;
     }
-    return globalKey;
+    return value.toFixed(2) + ' ' + units[index];
 }
 
-function resetKey() {
-    globalKey = '';
+function createRequest() {
+    if (window.XMLHttpRequest) {
+        return new XMLHttpRequest();
+    }
+    try {
+        return new ActiveXObject('Microsoft.XMLHTTP');
+    } catch (error) {
+        return null;
+    }
 }
-function upload() {
-    const files = document.getElementById('fileInput').files;
-    if (!files.length) { alert('请选择文件'); return; }
-    const form = new FormData();
-    for (let i = 0; i < files.length; i++) { form.append('file', files[i]); }
-    const xhr = new XMLHttpRequest(); xhr.open('POST', '/upload');
-    let lastLoaded = 0, lastTime = Date.now();
-    xhr.upload.onprogress = function(event) {
-        const now = Date.now();
-        if (event.lengthComputable && (now - lastTime >= 250 || event.loaded === event.total)) {
-            document.getElementById('progressBar').style.display = 'block';
-            const percent = (event.loaded / event.total) * 100;
-            document.getElementById('progressBar').value = percent;
-            const deltaTime = (now - lastTime) / 1000;
-            const deltaBytes = event.loaded - lastLoaded;
-            document.getElementById('status').textContent = (deltaBytes / deltaTime / 1024).toFixed(2) + ' KB/s';
-            lastLoaded = event.loaded; lastTime = now;
-        }
-    };    xhr.onload = function() { 
-        if (xhr.status === 200) { 
-            alert('上传成功'); 
-            refreshList(); 
-        } else if (xhr.status === 401) {
-            alert('密钥错误，请重新输入');
-            resetKey();
-        } else { 
-            alert('上传失败: ' + xhr.status); 
-        } 
-    };
-    const key = getKey();
-    if (!key) return;
-    xhr.setRequestHeader('X-Secret-Key', key);
-    xhr.send(form);
+
+function clearElement(element) {
+    while (element.firstChild) {
+        element.removeChild(element.firstChild);
+    }
 }
+
+function setListStatus(message, isError) {
+    var status = document.getElementById('listStatus');
+    clearElement(status);
+    status.className = isError ? 'status error' : 'status';
+    status.appendChild(document.createTextNode(message));
+}
+
+function validateUpload() {
+    var input = document.getElementById('fileInput');
+    if (!input.value) {
+        alert('请选择一个文件');
+        return false;
+    }
+    return true;
+}
+
+function renderFiles(data) {
+    var files = data && data.files ? data.files : [];
+    var table = document.getElementById('fileTable');
+    var list = document.getElementById('fileList');
+    var index;
+    clearElement(list);
+
+    if (!files.length) {
+        table.style.display = 'none';
+        setListStatus('当前没有可下载的文件。', false);
+        return;
+    }
+
+    for (index = 0; index < files.length; index = index + 1) {
+        var file = files[index];
+        var row = document.createElement('tr');
+        var nameCell = document.createElement('td');
+        var sizeCell = document.createElement('td');
+        var link = document.createElement('a');
+
+        link.className = 'file-link';
+        link.href = '/download?file=' + encodeURIComponent(file.name);
+        link.appendChild(document.createTextNode(file.name));
+        nameCell.appendChild(link);
+
+        sizeCell.className = 'size-column';
+        sizeCell.appendChild(document.createTextNode(formatSize(file.size)));
+        row.appendChild(nameCell);
+        row.appendChild(sizeCell);
+        list.appendChild(row);
+    }
+
+    table.style.display = '';
+    setListStatus('共 ' + files.length + ' 个文件，点击文件名即可下载。', false);
+}
+
 function refreshList() {
-    const key = getKey();
-    if (!key) return;
-    fetch('/list', { headers: { 'X-Secret-Key': key } })
-    .then(response => {
-        if (response.status === 401) {
-            alert('密钥错误，请重新输入');
-            resetKey();
-            return refreshList();
-        }
-        return response.json();
-    })
-    .then(data => {
-        const ul = document.getElementById('fileList'); ul.innerHTML = '';
-        data.files.forEach(function(f) {
-            const li = document.createElement('li');
-            // 文件名称与大小
-            li.innerHTML = '<input type="checkbox" class="file-checkbox" value="' + f.name + '">' +
-                           '<label style="flex:1;cursor:pointer;">' + f.name + '</label>' +
-                           '<span style="margin-left:16px;">' + formatSize(f.size) + '</span>';
-            // 点击行触发复选框
-            li.addEventListener('click', function(e) {
-                if (e.target.tagName !== 'INPUT') {
-                    const cb = this.querySelector('input');
-                    cb.checked = !cb.checked;
-                }
-            });
-            ul.appendChild(li);
-        });
-    });
-}
-function downloadSelected() {
-    const checks = document.querySelectorAll('.file-checkbox:checked');
-    if (!checks.length) { alert('请选择要下载的文件'); return; }
-    const key = getKey();
-    if (!key) return;
-    checks.forEach(function(cb) {
-        window.open('/download?file=' + encodeURIComponent(cb.value) + '&key=' + encodeURIComponent(key), '_blank');
-    });
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    function handleThemeChange(e) {
-        if (e.matches) {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
-        }
+    var request = createRequest();
+    if (!request) {
+        setListStatus('当前浏览器无法读取文件列表。', true);
+        return;
     }
-    handleThemeChange(mediaQuery);
-    mediaQuery.addEventListener('change', handleThemeChange);
-});
+
+    setListStatus('正在读取文件列表……', false);
+    request.onreadystatechange = function () {
+        var data;
+        if (request.readyState !== 4) {
+            return;
+        }
+        if (request.status !== 200) {
+            setListStatus('读取文件列表失败，请稍后重试。', true);
+            return;
+        }
+        try {
+            data = window.JSON.parse(request.responseText);
+            renderFiles(data);
+        } catch (error) {
+            setListStatus('服务器返回的文件列表无效。', true);
+        }
+    };
+
+    try {
+        request.open('GET', '/list?_=' + new Date().getTime(), true);
+        request.send(null);
+    } catch (error) {
+        setListStatus('无法连接到服务器。', true);
+    }
+}
 
 window.onload = refreshList;
 </script>

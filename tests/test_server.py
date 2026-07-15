@@ -16,6 +16,8 @@ do not have permission to create symbolic links.
 
 import http.client
 import json
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -83,34 +85,41 @@ class ServerTestCase(unittest.TestCase):
     def multipart(files):
         """Build a deterministic multipart body for upload tests.
 
-        ``files`` contains ``(field_name, filename, payload)`` tuples. The
-        caller passes the returned body and Content-Type header to ``request``;
-        ``http.client`` supplies Content-Length automatically.
+        ``files`` contains ``(field_name, filename, payload)`` tuples. A
+        ``None`` filename emits a regular form field instead of a file field.
+        The caller passes the returned body and Content-Type header to
+        ``request``; ``http.client`` supplies Content-Length automatically.
         """
         boundary = '----sfs-test-boundary'
         chunks = []
         for field_name, filename, payload in files:
-            chunks.extend([
-                f'--{boundary}\r\n'.encode(),
-                (
-                    f'Content-Disposition: form-data; name="{field_name}"; '
-                    f'filename="{filename}"\r\n'
-                ).encode(),
-                b'Content-Type: application/octet-stream\r\n\r\n',
-                payload,
-                b'\r\n',
-            ])
+            chunks.append(f'--{boundary}\r\n'.encode())
+            if filename is None:
+                chunks.extend([
+                    (
+                        f'Content-Disposition: form-data; '
+                        f'name="{field_name}"\r\n\r\n'
+                    ).encode(),
+                    payload,
+                    b'\r\n',
+                ])
+            else:
+                chunks.extend([
+                    (
+                        f'Content-Disposition: form-data; '
+                        f'name="{field_name}"; filename="{filename}"\r\n'
+                    ).encode(),
+                    b'Content-Type: application/octet-stream\r\n\r\n',
+                    payload,
+                    b'\r\n',
+                ])
         chunks.append(f'--{boundary}--\r\n'.encode())
         return b''.join(chunks), {
             'Content-Type': f'multipart/form-data; boundary={boundary}'
         }
 
-    def test_modern_classic_and_encrypted_index(self):
-        """Serve the selected UI and inject encryption state without caching.
-
-        The first response covers the modern default. The second mutates the
-        isolated handler to verify the compatible ``-e -c`` combination.
-        """
+    def test_modern_encrypted_and_ie8_classic_index(self):
+        """Serve the modern variants and the dependency-free classic page."""
         status, headers, body = self.request('GET', '/')
         self.assertEqual(status, 200)
         self.assertIn(b'id="appearancePanel"', body)
@@ -118,12 +127,82 @@ class ServerTestCase(unittest.TestCase):
         self.assertEqual(headers['Cache-Control'], 'no-store')
         self.assertEqual(int(headers['Content-Length']), len(body))
 
-        self.handler.classic_mode = True
         self.handler.encrypted = True
         status, _, body = self.request('GET', '/')
         self.assertEqual(status, 200)
-        self.assertIn(b'class="container"', body)
         self.assertIn(b'window.ENCRYPTED = true', body)
+
+        self.handler.encrypted = False
+        self.handler.classic_mode = True
+        status, _, body = self.request('GET', '/')
+        self.assertEqual(status, 200)
+        classic = body.decode('utf-8')
+        self.assertIn('class="container"', classic)
+        self.assertIn('method="post" action="/upload"', classic)
+        self.assertIn('enctype="multipart/form-data"', classic)
+        self.assertIn('name="response" value="classic"', classic)
+        self.assertIn('window.XMLHttpRequest', classic)
+        self.assertIn("new ActiveXObject('Microsoft.XMLHTTP')", classic)
+        self.assertNotIn('{upload_notice}', classic)
+
+        forbidden = (
+            'const ',
+            'let ',
+            '=>',
+            'fetch(',
+            'new FormData',
+            'addEventListener',
+            'multiple',
+            '<progress',
+            'var(--',
+            'display: flex',
+            'rem;',
+            '<script src=',
+            '<link rel="stylesheet"',
+        )
+        for feature in forbidden:
+            with self.subTest(feature=feature):
+                self.assertNotIn(feature, classic)
+
+    def test_classic_form_upload_redirects_and_shows_notice(self):
+        """Redirect only a successful classic form upload to its homepage."""
+        root = Path(self.storage.name)
+        (root / 'report.txt').write_bytes(b'old')
+        body, headers = self.multipart([
+            ('response', None, b'classic'),
+            ('file', r'C:\fakepath\report.txt', b'new'),
+        ])
+
+        status, _, payload = self.request(
+            'POST', '/upload', body=body, headers=headers
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, b'OK')
+
+        self.handler.classic_mode = True
+        status, response_headers, payload = self.request(
+            'POST', '/upload', body=body, headers=headers
+        )
+        self.assertEqual(status, 303)
+        self.assertEqual(response_headers['Location'], '/?upload=success')
+        self.assertEqual(payload, b'')
+        self.assertEqual((root / 'report.txt').read_bytes(), b'new')
+
+        status, _, page = self.request('GET', '/?upload=success')
+        self.assertEqual(status, 200)
+        self.assertIn('上传成功，文件列表已刷新。'.encode(), page)
+
+    def test_classic_and_encrypted_cli_flags_are_exclusive(self):
+        """Reject the unsupported encrypted classic mode at argument parsing."""
+        result = subprocess.run(
+            [sys.executable, str(basepath / 'file.py'), '-e', '-c'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('--classic', result.stderr)
+        self.assertIn('--encrypted', result.stderr)
 
     def test_log_redaction_preserves_non_string_arguments(self):
         """Redact query-string keys without breaking numeric log arguments."""
@@ -221,6 +300,22 @@ class ServerTestCase(unittest.TestCase):
         self.assertEqual(body, b'')
         self.assertEqual(headers['Content-Length'], str(len(payload)))
         self.assertEqual(headers['Accept-Ranges'], 'bytes')
+        self.assertEqual(
+            headers['Content-Disposition'],
+            "attachment; filename=\"sample.txt\"; "
+            "filename*=UTF-8''sample.txt",
+        )
+
+        (Path(self.storage.name) / '中文.txt').write_bytes(b'utf8')
+        status, headers, _ = self.request(
+            'HEAD', '/download?file=%E4%B8%AD%E6%96%87.txt'
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            headers['Content-Disposition'],
+            'attachment; filename="__.txt"; '
+            "filename*=UTF-8''%E4%B8%AD%E6%96%87.txt",
+        )
 
         cases = [
             ('bytes=0-3', 206, b'abcd', 'bytes 0-3/10'),
