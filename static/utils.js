@@ -1,13 +1,16 @@
 // 无 DOM 依赖的格式化、筛选和选择状态工具。
 const FSUtils = (function () {
     const TYPE_GROUPS = [
-        ['IMG', new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'])],
-        ['ARC', new Set(['zip', 'rar', '7z', 'tar', 'gz'])],
-        ['VID', new Set(['mp4', 'mkv', 'avi', 'mov', 'webm'])],
-        ['AUD', new Set(['mp3', 'wav', 'flac', 'aac', 'ogg'])],
-        ['PDF', new Set(['pdf'])],
-        ['TXT', new Set(['txt', 'md', 'log'])],
-        ['SRC', new Set(['py', 'js', 'ts', 'java', 'c', 'cpp', 'go', 'rs', 'sh', 'bat'])],
+        ['image', new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tif', 'tiff', 'heic'])],
+        ['archive', new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'zst'])],
+        ['video', new Set(['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'wmv', 'm4v'])],
+        ['audio', new Set(['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma', 'opus'])],
+        ['pdf', new Set(['pdf'])],
+        ['text', new Set(['txt', 'md', 'log', 'rtf', 'ini', 'conf'])],
+        ['code', new Set(['py', 'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'json', 'xml', 'yaml', 'yml', 'java', 'c', 'h', 'cpp', 'hpp', 'go', 'rs', 'php', 'rb', 'sh', 'bat', 'ps1', 'sql'])],
+        ['document', new Set(['doc', 'docx', 'odt', 'pages'])],
+        ['sheet', new Set(['xls', 'xlsx', 'csv', 'tsv', 'ods', 'numbers'])],
+        ['slide', new Set(['ppt', 'pptx', 'odp', 'key'])],
     ];
     const THEME_MODES = new Set(['light', 'dark', 'auto']);
     const SORT_FIELDS = new Set(['name', 'size', 'modified']);
@@ -69,10 +72,10 @@ const FSUtils = (function () {
         const extension = value.includes('.')
             ? value.split('.').pop().toLowerCase()
             : '';
-        for (const [label, extensions] of TYPE_GROUPS) {
-            if (extensions.has(extension)) return label;
+        for (const [type, extensions] of TYPE_GROUPS) {
+            if (extensions.has(extension)) return type;
         }
-        return extension.substring(0, 3).toUpperCase();
+        return 'file';
     }
 
     function normalizeThemeMode(value) {

@@ -61,6 +61,15 @@ test('filter, sort, and folder helpers preserve navigation rules', () => {
     assert.equal(entries[0].name, 'large.bin');
 });
 
+test('file icon types cover common formats and use a safe fallback', () => {
+    assert.equal(utils.extIcon('photo.JPEG'), 'image');
+    assert.equal(utils.extIcon('report.docx'), 'document');
+    assert.equal(utils.extIcon('budget.xlsx'), 'sheet');
+    assert.equal(utils.extIcon('slides.pptx'), 'slide');
+    assert.equal(utils.extIcon('script.ps1'), 'code');
+    assert.equal(utils.extIcon('no-extension'), 'file');
+});
+
 test('findUploadConflicts catches existing and batch duplicates', () => {
     const selected = [
         { name: 'report.pdf' },

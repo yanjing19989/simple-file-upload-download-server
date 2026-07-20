@@ -36,6 +36,19 @@ window.FSUI = (function () {
         aboutModal: document.getElementById('aboutModal'),
         toastStack: document.getElementById('toastStack'),
     };
+    const FILE_ICON_SVGS = {
+        file: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8" cy="12" r=".7"/><circle cx="12" cy="12" r=".7"/><circle cx="16" cy="12" r=".7"/></svg>',
+        image: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.5"/><path d="m6.5 17 4-4 2.5 2 2-2 2.5 4"/></svg>',
+        archive: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16M10 4v2m0 1.5v3m0 1.5v2m-1 1.5h2v2H9z"/></svg>',
+        video: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m10 8.5 5.5 3.5-5.5 3.5Z"/></svg>',
+        audio: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M11 15.5V8l5-1v7M11 10l5-1"/><circle cx="8.5" cy="15.5" r="2.5"/><circle cx="13.5" cy="14" r="2.5"/></svg>',
+        pdf: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 16.5c2.8-3.3 4.2-6.3 3.5-8.6-.3-1.1-1.4-1-1.4.2.1 2.8 2.4 6.2 5.6 7.5 1.3.5 1.8-.5.8-1.1-2.3-1.4-6-.6-8.9.8"/></svg>',
+        text: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8.5h8m-8 3.5h8m-8 3.5h5"/></svg>',
+        code: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m10 9-3 3 3 3m4-6 3 3-3 3"/></svg>',
+        document: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 8 2 8 2-6 2 6 2-8"/></svg>',
+        sheet: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8h8m-8 4h8m-8 4h8M11 8v8"/></svg>',
+        slide: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20l4-4 4 4M8 8h4m-4 3h7"/></svg>',
+    };
 
     let actions = {};
     let selectedNames = new Set();
@@ -47,6 +60,13 @@ window.FSUI = (function () {
     let overwritePreviousOverflow = '';
     let lastFocusedElement = null;
     let previousBodyOverflow = '';
+
+    function fileIconMarkup(name) {
+        const type = FSUtils.extIcon(name);
+        const icon = FILE_ICON_SVGS[type] || FILE_ICON_SVGS.file;
+        return '<span class="file-icon file-icon--' + type +
+            '" aria-hidden="true">' + icon + '</span>';
+    }
 
     function showToast(message, type = 'ok', timeout = 3200) {
         while (elements.toastStack.children.length >= 4) {
@@ -295,7 +315,7 @@ window.FSUI = (function () {
                     '<td class="name-cell"><button class="directory-link" type="button" data-directory-path="' +
                     FSUtils.escapeHtml(file.path) + '"' +
                     (uploadBusy ? ' disabled' : '') + '>' +
-                    '<span class="file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h7v9.5A2.5 2.5 0 0 1 16.5 19h-10A2.5 2.5 0 0 1 4 16.5v-9Z"/></svg></span>' +
+                    '<span class="file-icon file-icon--folder" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 8h17M5 5h5l2 3h7.5a1 1 0 0 1 1 1v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></span>' +
                     '<span class="fname" title="' +
                     FSUtils.escapeHtml(file.name) + '">' +
                     FSUtils.escapeHtml(file.name) + '</span></button></td>' +
@@ -315,8 +335,7 @@ window.FSUI = (function () {
                 FSUtils.escapeHtml(file.name) + '"' +
                 (checked ? ' checked' : '') + '></td>' +
                 '<td class="name-cell"><div class="file-name-wrap">' +
-                '<span class="file-icon" aria-hidden="true">' +
-                FSUtils.escapeHtml(FSUtils.extIcon(file.name)) + '</span>' +
+                fileIconMarkup(file.name) +
                 '<span class="fname" title="' +
                 FSUtils.escapeHtml(file.name) + '">' +
                 FSUtils.escapeHtml(file.name) + '</span></div></td>' +
