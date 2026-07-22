@@ -279,7 +279,7 @@ window.FSUI = (function () {
         for (const button of elements.sortButtons) button.disabled = false;
         selectedNames = FSUtils.retainAvailableSelection(
             selectedNames,
-            cache.filter(item => item.kind !== 'directory'),
+            cache,
         );
         const query = elements.searchInput.value;
         const visible = FSUtils.sortFiles(
@@ -308,10 +308,15 @@ window.FSUI = (function () {
         for (const file of visible) {
             const row = document.createElement('tr');
             if (file.kind === 'directory') {
-                row.className = 'directory-row';
+                const checked = selectedNames.has(file.name);
+                row.className = 'directory-row' +
+                    (checked ? ' is-selected' : '');
+                row.dataset.name = file.name;
                 row.dataset.path = file.path;
                 row.innerHTML =
-                    '<td class="checkbox-cell"><span class="directory-open" aria-hidden="true">›</span></td>' +
+                    '<td class="checkbox-cell"><input type="checkbox" class="row-check" aria-label="选择文件夹 ' +
+                    FSUtils.escapeHtml(file.name) + '"' +
+                    (checked ? ' checked' : '') + '></td>' +
                     '<td class="name-cell"><button class="directory-link" type="button" data-directory-path="' +
                     FSUtils.escapeHtml(file.path) + '"' +
                     (uploadBusy ? ' disabled' : '') + '>' +
@@ -363,11 +368,9 @@ window.FSUI = (function () {
             elements.fileCount.textContent =
                 directoryCount + ' 个文件夹 · ' + fileCount + ' 个文件';
         }
-        const hasVisibleFiles = visible.some(
-            item => item.kind !== 'directory'
-        );
-        elements.selectAllBtn.disabled = !hasVisibleFiles;
-        elements.invertBtn.disabled = !hasVisibleFiles;
+        const hasVisibleEntries = visible.length > 0;
+        elements.selectAllBtn.disabled = !hasVisibleEntries;
+        elements.invertBtn.disabled = !hasVisibleEntries;
         updateSelected();
     }
 
@@ -489,7 +492,7 @@ window.FSUI = (function () {
 
     elements.fileTableBody.addEventListener('change', event => {
         if (!event.target.matches('.row-check')) return;
-        const row = event.target.closest('.file-row');
+        const row = event.target.closest('.file-row, .directory-row');
         if (row) toggleRow(row, event.target.checked);
     });
     elements.fileTableBody.addEventListener('click', event => {
@@ -500,7 +503,7 @@ window.FSUI = (function () {
             }
             return;
         }
-        const row = event.target.closest('.file-row');
+        const row = event.target.closest('.file-row, .directory-row');
         if (!row || event.target.matches('.row-check')) return;
         toggleRow(row, !row.querySelector('.row-check').checked);
     });
@@ -510,7 +513,9 @@ window.FSUI = (function () {
         actions.navigate?.(button.dataset.path);
     });
     elements.selectAllBtn.addEventListener('click', () => {
-        const names = [...elements.fileTableBody.querySelectorAll('.file-row')]
+        const names = [...elements.fileTableBody.querySelectorAll(
+            '.file-row, .directory-row'
+        )]
             .map(row => row.dataset.name);
         selectedNames = FSUtils.updateVisibleSelection(
             selectedNames,
@@ -520,7 +525,9 @@ window.FSUI = (function () {
         renderTableFromCache(currentFiles());
     });
     elements.invertBtn.addEventListener('click', () => {
-        const names = [...elements.fileTableBody.querySelectorAll('.file-row')]
+        const names = [...elements.fileTableBody.querySelectorAll(
+            '.file-row, .directory-row'
+        )]
             .map(row => row.dataset.name);
         selectedNames = FSUtils.updateVisibleSelection(
             selectedNames,

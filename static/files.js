@@ -353,6 +353,129 @@
         link.remove();
     }
 
+    async function listDirectory(path, key) {
+        const response = await fetch(endpointWithPath('/list', path), {
+            headers: { 'X-Secret-Key': key },
+        });
+        if (!response.ok) {
+            throw new Error(
+                '读取文件夹失败，服务器返回 ' + response.status
+            );
+        }
+        const data = await response.json();
+        if (!data || !Array.isArray(data.files) ||
+            !Array.isArray(data.directories)) {
+            throw new Error('文件夹列表格式无效');
+        }
+        return data;
+    }
+
+    async function writeRemoteFile(path, name, targetDirectory, key) {
+        const response = await fetch(
+            '/download?file=' + encodeURIComponent(path),
+            { headers: { 'X-Secret-Key': key } },
+        );
+        if (!response.ok) {
+            throw new Error(
+                '下载 ' + name + ' 失败，服务器返回 ' + response.status
+            );
+        }
+        const fileHandle = await targetDirectory.getFileHandle(
+            name,
+            { create: true },
+        );
+        const writable = await fileHandle.createWritable();
+        try {
+            if (response.body && response.body.pipeTo) {
+                await response.body.pipeTo(writable);
+            } else {
+                await writable.write(await response.blob());
+                await writable.close();
+            }
+        } catch (error) {
+            try {
+                await writable.abort();
+            } catch (abortError) {
+                // 流可能已由 pipeTo 自动中止。
+            }
+            throw error;
+        }
+    }
+
+    async function writeRemoteDirectory(path, targetDirectory, key) {
+        const data = await listDirectory(path, key);
+        let downloadedFiles = 0;
+        for (const directory of data.directories) {
+            const childPath = FSUtils.joinPath(path, directory.name);
+            const childTarget = await targetDirectory.getDirectoryHandle(
+                directory.name,
+                { create: true },
+            );
+            downloadedFiles += await writeRemoteDirectory(
+                childPath,
+                childTarget,
+                key,
+            );
+        }
+        for (const file of data.files) {
+            await writeRemoteFile(
+                FSUtils.joinPath(path, file.name),
+                file.name,
+                targetDirectory,
+                key,
+            );
+            downloadedFiles++;
+        }
+        return downloadedFiles;
+    }
+
+    async function downloadToDirectory(entries, downloadPath) {
+        if (typeof window.showDirectoryPicker !== 'function') {
+            throw new Error(
+                '当前浏览器或访问方式不支持文件夹下载，请使用 HTTPS 或 localhost 下的 Chrome/Edge'
+            );
+        }
+
+        // 必须在用户点击产生的激活状态内先打开目录选择器。
+        const targetRoot = await window.showDirectoryPicker({
+            mode: 'readwrite',
+        });
+        const authResult = await withAuthRetry(key => fetch(
+            endpointWithPath('/list', downloadPath),
+            { headers: { 'X-Secret-Key': key } },
+        ));
+        if (authResult.cancelled) return null;
+        if (!authResult.response.ok) {
+            throw new Error('服务器返回 ' + authResult.response.status);
+        }
+        await authResult.response.json();
+
+        let downloadedFiles = 0;
+        for (const entry of entries) {
+            const path = FSUtils.joinPath(downloadPath, entry.name);
+            if (entry.kind === 'directory') {
+                const directory = await targetRoot.getDirectoryHandle(
+                    entry.name,
+                    { create: true },
+                );
+                downloadedFiles += await writeRemoteDirectory(
+                    path,
+                    directory,
+                    authResult.key,
+                );
+            } else {
+                await writeRemoteFile(
+                    path,
+                    entry.name,
+                    targetRoot,
+                    authResult.key,
+                );
+                downloadedFiles++;
+            }
+        }
+        return downloadedFiles;
+    }
+
     async function downloadSelected() {
         if (downloadBusy) return;
         const names = FSUI.getSelectedNames();
@@ -365,6 +488,26 @@
         FSUI.setDownloadBusy(true);
         try {
             const downloadPath = currentPath;
+            const selectedSet = new Set(names);
+            const entries = fileCache.filter(entry =>
+                selectedSet.has(entry.name)
+            );
+            const directories = entries.filter(
+                entry => entry.kind === 'directory'
+            );
+            if (directories.length) {
+                const downloadedFiles = await downloadToDirectory(
+                    entries,
+                    downloadPath,
+                );
+                if (downloadedFiles === null) return;
+                FSUI.showToast(
+                    '下载完成：' + directories.length + ' 个文件夹，' +
+                    downloadedFiles + ' 个文件',
+                    'ok',
+                );
+                return;
+            }
             const paths = names.map(name =>
                 FSUtils.joinPath(downloadPath, name)
             );
@@ -388,6 +531,7 @@
                 }
             }
         } catch (error) {
+            if (error && error.name === 'AbortError') return;
             FSUI.showToast(
                 '下载失败：' + (error.message || '网络连接异常'),
                 'err',
