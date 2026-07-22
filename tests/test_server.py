@@ -1,15 +1,19 @@
 """HTTP integration tests using a live server and temporary storage."""
 
 import http.client
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import threading
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 from file import FileServer, UploadHTTPRequestHandler, basepath
+from generate_https_cert import DEFAULT_OUTPUT_DIR, local_names
 
 
 class ServerTestCase(unittest.TestCase):
@@ -151,6 +155,67 @@ class ServerTestCase(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('--classic', result.stderr)
         self.assertIn('--encrypted', result.stderr)
+
+    def test_https_certificate_and_key_cli_flags_are_paired(self):
+        """Require both halves of the HTTPS server identity."""
+        for flag in ('--cert', '--key'):
+            result = subprocess.run(
+                [sys.executable, str(basepath / 'file.py'), flag, 'test.pem'],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('--cert and --key must be provided together',
+                          result.stderr)
+
+    def test_certificate_generator_uses_user_directory_and_local_sans(self):
+        """Keep generated identities out of the shared working directory."""
+        self.assertEqual(
+            DEFAULT_OUTPUT_DIR,
+            Path.home() / '.simple-file-upload-download-server',
+        )
+        dns_names, ip_addresses = local_names(['files.example.test'])
+        self.assertIn('localhost', dns_names)
+        self.assertIn('files.example.test', dns_names)
+        self.assertIn('127.0.0.1', ip_addresses)
+
+    def test_run_wraps_server_socket_for_https(self):
+        """Wrap the listening socket and advertise the HTTPS URL."""
+        class TestServer:
+            def __init__(self, address, handler):
+                self.address = address
+                self.handler = handler
+                self.socket = object()
+                self.closed = False
+
+            def serve_forever(self):
+                raise KeyboardInterrupt
+
+            def server_close(self):
+                self.closed = True
+
+        context = mock.Mock()
+        context.wrap_socket.return_value = object()
+        output = io.StringIO()
+        with mock.patch('file.ssl.SSLContext', return_value=context), \
+                mock.patch('file.socket.gethostbyname',
+                           return_value='192.0.2.10'), \
+                redirect_stdout(output):
+            from file import run
+            run(
+                server_class=TestServer,
+                handler_class=self.handler,
+                port=8443,
+                certfile='cert.pem',
+                keyfile='key.pem',
+            )
+
+        context.load_cert_chain.assert_called_once_with(
+            certfile='cert.pem', keyfile='key.pem'
+        )
+        context.wrap_socket.assert_called_once()
+        self.assertIn('https://192.0.2.10:8443/', output.getvalue())
 
     def test_static_cache_headers_and_traversal_protection(self):
         status, headers, body = self.request('GET', '/static/style.css')

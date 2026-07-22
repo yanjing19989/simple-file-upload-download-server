@@ -22,8 +22,10 @@ python path/to/file.py -p 8000
 
 浏览器访问终端输出的地址。默认端口为 80，也可以使用仓库中的启动脚本：
 
-- `run_server.sh`：Linux/macOS，端口 8000
+- `run_server.sh`：Linux/macOS，端口 80
 - `run_server.bat`：Windows，端口 80
+- `run_server_https.sh`：Linux/macOS HTTPS，端口 443
+- `run_server_https.bat`：Windows HTTPS，端口 443
 - `run_server_classic.bat`：Windows 经典模式，端口 80
 
 命令行参数：
@@ -32,9 +34,35 @@ python path/to/file.py -p 8000
 -p, --port PORT   监听端口，默认 80
 -e, --encrypted   启用一次性四位密钥
 -c, --classic     启用经典界面
+--cert FILE       PEM 格式的 HTTPS 证书
+--key FILE        与证书匹配的 PEM 私钥
 ```
 
 `--encrypted` 与 `--classic` 互斥。经典模式仅适合无加密的可信局域网。
+
+### HTTPS 启动脚本
+
+额外的 HTTPS 脚本不会改变原有 HTTP 启动方式。先运行证书生成工具：
+
+```powershell
+python generate_https_cert.py
+```
+
+Linux/macOS 使用 `python3 generate_https_cert.py`。工具不需要 Python 第三方包；Windows 使用系统 PowerShell 加密 API，Linux/macOS 需要系统已安装 OpenSSL。工具会生成随机 RSA 私钥和自签名证书，自动加入 localhost、主机名及检测到的本机 IP，有效期默认 825 天。默认保存位置为：
+
+- Windows：`%USERPROFILE%\.simple-file-upload-download-server\`
+- Linux/macOS：`$HOME/.simple-file-upload-download-server/`
+
+随后运行 `run_server_https.bat` 或 `run_server_https.sh`，脚本会从上述用户目录读取 `cert.pem` 和 `key.pem` 并监听 443 端口。若文件已经存在，生成工具不会覆盖；明确需要重新生成时使用 `python generate_https_cert.py --force`。可通过 `--host example.local` 添加其他 DNS 名，或用 `--output-dir` 更改输出目录。
+
+若使用 [mkcert](https://github.com/FiloSottile/mkcert)，可为 localhost 和实际局域网地址生成本机信任的开发证书（将示例 IP 替换为服务器地址）：
+
+```powershell
+mkcert -install
+mkcert -cert-file "$env:USERPROFILE\.simple-file-upload-download-server\cert.pem" -key-file "$env:USERPROFILE\.simple-file-upload-download-server\key.pem" localhost 127.0.0.1 192.168.1.100
+```
+
+自签名证书不会自动得到浏览器信任，需要在每台客户端上信任生成的 `cert.pem`；使用 mkcert 时则需信任其根证书。只有浏览器认可的 HTTPS 安全上下文才能启用按目录结构下载；仅跳过证书警告可能仍不足以启用目录访问能力。443 端口在部分系统上需要管理员或 root 权限。
 
 ## 使用方式
 

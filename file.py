@@ -9,6 +9,7 @@ import re
 import secrets
 import shutil
 import socket
+import ssl
 import sys
 import tempfile
 import urllib.parse
@@ -568,15 +569,31 @@ class UploadHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_error(404)
 
 
-def run(server_class=FileServer, handler_class=UploadHTTPRequestHandler, port=80):
+def run(
+        server_class=FileServer,
+        handler_class=UploadHTTPRequestHandler,
+        port=80,
+        certfile=None,
+        keyfile=None):
     handler_class.storage_root = Path.cwd().resolve()
     handler_class.static_root = (basepath / 'static').resolve()
     httpd = server_class(('', port), handler_class)
+    scheme = 'http'
+    if certfile and keyfile:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        try:
+            context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+            httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+        except Exception:
+            httpd.server_close()
+            raise
+        scheme = 'https'
     try:
         host_ip = socket.gethostbyname(socket.gethostname())
     except OSError:
         host_ip = '127.0.0.1'
-    url = f'http://{host_ip}:{port}/'
+    url = f'{scheme}://{host_ip}:{port}/'
     print(f'Serving on {url}')
 
     try:
@@ -608,6 +625,16 @@ if __name__ == '__main__':
         default=80,
         help='Port to run the server on (default: 80)',
     )
+    parser.add_argument(
+        '--cert',
+        metavar='FILE',
+        help='PEM certificate file used to enable HTTPS',
+    )
+    parser.add_argument(
+        '--key',
+        metavar='FILE',
+        help='PEM private-key file used to enable HTTPS',
+    )
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument(
         '-e',
@@ -622,6 +649,8 @@ if __name__ == '__main__':
         help='Enable classic mode and use classic.html as the homepage',
     )
     args = parser.parse_args()
+    if bool(args.cert) != bool(args.key):
+        parser.error('--cert and --key must be provided together')
     if args.encrypted:
         ENCRYPTED = True
         SECRET_KEY = f'{secrets.randbelow(9000) + 1000:04d}'
@@ -629,4 +658,4 @@ if __name__ == '__main__':
     if args.classic:
         CLASSIC_MODE = True
         print('Classic mode enabled: serving classic.html as homepage')
-    run(port=args.port)
+    run(port=args.port, certfile=args.cert, keyfile=args.key)
